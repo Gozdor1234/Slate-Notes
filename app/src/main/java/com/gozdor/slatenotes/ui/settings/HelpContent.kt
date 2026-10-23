@@ -15,8 +15,8 @@ val HelpTopics: List<HelpTopic> = listOf(
             HelpBlock(
                 heading = "Your first note",
                 bullets = listOf(
-                    "Tap the + in a circle at the bottom to find a note or type a new name and create it.",
-                    "Or open the menu (☰ at the bottom right) and choose New note.",
+                    "Tap + on the floating bar at the bottom to create a new note.",
+                    "Or tap the magnifying glass to find a note, or type a new name to create one.",
                     "Type a title at the top. The title is the file name, so renaming the title renames the file.",
                     "Everything saves automatically about half a second after you stop typing.",
                 ),
@@ -26,7 +26,7 @@ val HelpTopics: List<HelpTopic> = listOf(
                 bullets = listOf(
                     "Left sidebar: your files, search and bookmarks.",
                     "Right sidebar: backlinks, outgoing links, tags and the outline of the open note.",
-                    "Bottom bar: back, forward, find/create note, tabs, and the menu.",
+                    "Bottom bar: back, forward, find or create a note, new note, tabs, and the menu (☰).",
                 ),
             ),
         ),
@@ -39,7 +39,7 @@ val HelpTopics: List<HelpTopic> = listOf(
             HelpBlock(
                 heading = "Open or create a vault",
                 bullets = listOf(
-                    "Tap the vault name at the bottom of the left sidebar, or menu ▸ Open another vault.",
+                    "Tap the vault name at the bottom of the left sidebar.",
                     "Choose \"Open or create a vault folder\", browse to a folder, and tap Use as vault.",
                     "Use the folder+ icon in the browser to make a brand-new folder first.",
                     "Existing Obsidian vaults on your phone are found automatically and listed for one-tap opening.",
@@ -55,7 +55,7 @@ val HelpTopics: List<HelpTopic> = listOf(
         listOf(
             HelpBlock(
                 bullets = listOf(
-                    "Open the left sidebar and pick the Files tab to see your vault's folders and notes.",
+                    "Open the left sidebar. If it isn't showing Files, tap the rounded button near the bottom and choose Files.",
                     "Tap a folder to expand it. The collapse button at the top folds everything back up.",
                     "Long-press a note or folder and let go for its menu: New note, New folder, Open in new tab, Bookmark, Move to, Rename and Delete.",
                     "Use the buttons at the top of Files to create a note or folder in the vault's top level.",
@@ -111,7 +111,7 @@ val HelpTopics: List<HelpTopic> = listOf(
         "Reading view",
         "See the rendered note",
         listOf(
-            HelpBlock("Tap the book icon in the top bar to switch the open note to reading view; tap the pencil to go back to editing. Each tab remembers its own mode."),
+            HelpBlock("Tap ⋮ at the top right and choose Reading view; choose Editing view to go back. Each tab remembers its own mode."),
             HelpBlock(
                 bullets = listOf(
                     "Links and tags are tappable. Tapping a tag opens search for that tag.",
@@ -151,7 +151,7 @@ val HelpTopics: List<HelpTopic> = listOf(
                 heading = "Properties",
                 text = "Put a YAML block between two lines of --- at the very top of a note. A tags property (tags: [one, two] or a list of - items) counts as tags too, and aliases lets a note be found or linked by another name.",
             ),
-            HelpBlock("See every tag and how many notes use it in the right sidebar's Tags tab. Tap a tag to search for it."),
+            HelpBlock("See every tag and how many notes use it in the right sidebar's Tags view. Tap a tag to search for it."),
         ),
     ),
     HelpTopic(
@@ -160,7 +160,7 @@ val HelpTopics: List<HelpTopic> = listOf(
         listOf(
             HelpBlock(
                 heading = "Quick switcher",
-                text = "Tap the + in a circle on the bottom bar. Start typing a note name; letters don't need to be next to each other (\"mtg nts\" finds \"Meeting notes\"). If nothing matches exactly, the last row creates a new note with that name. With an empty box it shows recently opened notes.",
+                text = "Tap the magnifying glass on the bottom bar. Start typing a note name; letters don't need to be next to each other (\"mtg nts\" finds \"Meeting notes\"). If nothing matches exactly, the last row creates a new note with that name. With an empty box it shows recently opened notes.",
             ),
             HelpBlock(
                 heading = "Search",
@@ -177,7 +177,7 @@ val HelpTopics: List<HelpTopic> = listOf(
                 heading = "Ways to open it",
                 bullets = listOf(
                     "Pull down from the top of a note.",
-                    "Menu (☰) ▸ Command palette.",
+                    "Menu (☰) ▸ Open command palette.",
                     "The terminal icon on the editing toolbar.",
                 ),
             ),
@@ -185,8 +185,8 @@ val HelpTopics: List<HelpTopic> = listOf(
                 heading = "Gestures",
                 bullets = listOf(
                     "Swipe in from the middle of the left or right edge to open a sidebar. Swipe it back or tap outside to close.",
-                    "If your phone uses gesture navigation, Android reserves most of each edge for its Back gesture. Slate claims a strip in the middle of each edge; the sidebar buttons in the top bar always work too.",
-                    "Long-press the tab counter to open a new tab right away.",
+                    "If your phone uses gesture navigation, Android reserves most of each edge for its Back gesture. Slate claims a strip in the middle of each edge; the sidebar button at the top left always works too, and ⋮ ▸ Backlinks or Outline opens the right sidebar.",
+                    "Switch the left or right sidebar's view with the rounded button near its bottom.",
                 ),
             ),
         ),
@@ -197,7 +197,7 @@ val HelpTopics: List<HelpTopic> = listOf(
         listOf(
             HelpBlock(
                 bullets = listOf(
-                    "The number in a box on the bottom bar is how many tabs are open. Tap it to see them, switch, close, or add a new one.",
+                    "The number in a box on the bottom bar is how many tabs are open. Tap it to see them, switch, close, or add a new one with +.",
                     "Long-press a note in Files and choose Open in new tab.",
                     "Each tab has its own history. Use the back and forward arrows on the bottom bar, or Android's back button.",
                     "Open tabs are remembered when you leave and come back.",
@@ -209,7 +209,7 @@ val HelpTopics: List<HelpTopic> = listOf(
         "Bookmarks",
         "Pin the notes you use most",
         listOf(
-            HelpBlock("Bookmark a note from its ⋮ menu in the top bar, by long-pressing it in Files, or with the command palette. Find them in the left sidebar's Bookmarks tab, where the × removes one."),
+            HelpBlock("Bookmark a note from its ⋮ menu in the top bar, by long-pressing it in Files, or with the command palette. Find them in the left sidebar's Bookmarks view (or menu ☰ ▸ Bookmarks), where the × removes one."),
             HelpBlock("Bookmarks are stored by Slate itself, separately from Obsidian's own bookmarks."),
         ),
     ),

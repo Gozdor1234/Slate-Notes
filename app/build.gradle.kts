@@ -12,8 +12,8 @@ android {
         applicationId = "com.gozdor.slatenotes"
         minSdk = 26
         targetSdk = 35
-        versionCode = 4
-        versionName = "0.3.1"
+        versionCode = 5
+        versionName = "0.4.0"
     }
 
     // One fixed key for every build, so a new APK installs over the old one

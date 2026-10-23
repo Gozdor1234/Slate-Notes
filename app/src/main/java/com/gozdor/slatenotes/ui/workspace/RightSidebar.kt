@@ -28,32 +28,46 @@ import com.gozdor.slatenotes.ui.AppViewModel
 import com.gozdor.slatenotes.ui.JumpRequest
 import com.gozdor.slatenotes.ui.screens.EmptyHint
 import com.gozdor.slatenotes.ui.screens.NoteRow
+import com.gozdor.slatenotes.ui.theme.Lucide
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 
 @Composable
 fun ColumnScope.RightSidebar(vm: AppViewModel) {
-    PanelTabs(
-        icons = listOf(
-            Icons.Outlined.CallReceived to "Backlinks",
-            Icons.Outlined.CallMade to "Outgoing links",
-            Icons.Outlined.Tag to "Tags",
-            Icons.Default.FormatListBulleted to "Outline",
-        ),
-        selected = vm.rightPanel,
-        onSelect = { vm.rightPanel = it },
-    )
-    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     Box(
         Modifier
             .weight(1f)
             .fillMaxWidth(),
     ) {
-        when (vm.rightPanel) {
-            0 -> BacklinksPanel(vm)
-            1 -> OutgoingPanel(vm)
-            2 -> TagsPanel(vm)
-            else -> OutlinePanel(vm)
+        AnimatedContent(
+            targetState = vm.rightPanel,
+            transitionSpec = { fadeIn(tween(180)) togetherWith fadeOut(tween(120)) },
+            label = "rightPanel",
+        ) { panel ->
+            when (panel) {
+                0 -> BacklinksPanel(vm)
+                1 -> OutgoingPanel(vm)
+                2 -> TagsPanel(vm)
+                else -> OutlinePanel(vm)
+            }
         }
     }
+    ViewSwitcherPill(
+        options = listOf(
+            Lucide.ArrowDownLeft to "Backlinks",
+            Lucide.ArrowUpRight to "Outgoing links",
+            Lucide.Tags to "Tags",
+            Lucide.List to "Outline",
+        ),
+        selected = vm.rightPanel,
+        onSelect = { vm.rightPanel = it },
+    )
+    Spacer(Modifier.height(10.dp))
 }
 
 @Composable

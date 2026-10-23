@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
@@ -72,6 +73,7 @@ import com.gozdor.slatenotes.ui.editor.Formatting
 import com.gozdor.slatenotes.ui.editor.HighlightColors
 import com.gozdor.slatenotes.ui.editor.MarkdownHighlighter
 import com.gozdor.slatenotes.ui.editor.ReadingView
+import com.gozdor.slatenotes.ui.theme.Lucide
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -320,27 +322,27 @@ private fun MobileToolbar(
                 .horizontalScroll(rememberScrollState())
                 .padding(horizontal = 4.dp),
         ) {
-            ToolButton(Icons.Default.Link, "Add internal link") { apply { Formatting.wrap(it, "[[", "]]") } }
-            ToolButton(Icons.Default.Tag, "Add tag") { apply { Formatting.wrap(it, "#", "") } }
-            ToolButton(Icons.Default.CheckBox, "Toggle checklist") {
+            ToolButton(Lucide.Link, "Add internal link") { apply { Formatting.wrap(it, "[[", "]]") } }
+            ToolButton(Lucide.Hash, "Add tag") { apply { Formatting.wrap(it, "#", "") } }
+            ToolButton(Lucide.SquareCheck, "Toggle checklist") {
                 apply { Formatting.toggleLinePrefix(it, "- [ ] ", listOf("- [x] ", "- [X] ", "- ", "* ")) }
             }
-            ToolButton(Icons.Default.FormatListBulleted, "Toggle bulleted list") {
+            ToolButton(Lucide.List, "Toggle bulleted list") {
                 apply { Formatting.toggleLinePrefix(it, "- ", listOf("- [ ] ", "- [x] ", "- [X] ", "* ")) }
             }
-            ToolButton(Icons.Default.FormatListNumbered, "Toggle numbered list") {
+            ToolButton(Lucide.ListOrdered, "Toggle numbered list") {
                 apply { Formatting.toggleLinePrefix(it, "1. ", listOf("- [ ] ", "- [x] ", "- ", "* ")) }
             }
-            ToolButton(Icons.Default.FormatIndentIncrease, "Indent") { apply { Formatting.indent(it, true) } }
-            ToolButton(Icons.Default.FormatIndentDecrease, "Unindent") { apply { Formatting.indent(it, false) } }
-            ToolButton(Icons.Default.Title, "Cycle heading") { apply { Formatting.cycleHeading(it) } }
-            ToolButton(Icons.Default.FormatBold, "Bold") { apply { Formatting.wrap(it, "**") } }
-            ToolButton(Icons.Default.FormatItalic, "Italic") { apply { Formatting.wrap(it, "*") } }
-            ToolButton(Icons.Default.StrikethroughS, "Strikethrough") { apply { Formatting.wrap(it, "~~") } }
-            ToolButton(Icons.Default.FormatQuote, "Toggle blockquote") { apply { Formatting.toggleLinePrefix(it, "> ") } }
-            ToolButton(Icons.Default.Code, "Code") { apply { Formatting.wrap(it, "`") } }
-            ToolButton(Icons.Default.Terminal, "Command palette", onCommand)
-            ToolButton(Icons.Default.KeyboardHide, "Hide keyboard", onHideKeyboard)
+            ToolButton(Lucide.ListIndentIncrease, "Indent") { apply { Formatting.indent(it, true) } }
+            ToolButton(Lucide.ListIndentDecrease, "Unindent") { apply { Formatting.indent(it, false) } }
+            ToolButton(Lucide.Heading, "Cycle heading") { apply { Formatting.cycleHeading(it) } }
+            ToolButton(Lucide.Bold, "Bold") { apply { Formatting.wrap(it, "**") } }
+            ToolButton(Lucide.Italic, "Italic") { apply { Formatting.wrap(it, "*") } }
+            ToolButton(Lucide.Strikethrough, "Strikethrough") { apply { Formatting.wrap(it, "~~") } }
+            ToolButton(Lucide.TextQuote, "Toggle blockquote") { apply { Formatting.toggleLinePrefix(it, "> ") } }
+            ToolButton(Lucide.Code, "Code") { apply { Formatting.wrap(it, "`") } }
+            ToolButton(Lucide.Terminal, "Command palette", onCommand)
+            ToolButton(Lucide.KeyboardOff, "Hide keyboard", onHideKeyboard)
         }
     }
 }
@@ -348,6 +350,6 @@ private fun MobileToolbar(
 @Composable
 private fun ToolButton(icon: ImageVector, label: String, onClick: () -> Unit) {
     IconButton(onClick = onClick) {
-        Icon(icon, contentDescription = label, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Icon(icon, contentDescription = label, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(22.dp))
     }
 }

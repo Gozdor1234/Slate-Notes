@@ -83,82 +83,140 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.IntOffset
 import kotlin.math.roundToInt
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.material3.Surface
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.unit.sp
+import com.gozdor.slatenotes.ui.theme.Lucide
 
 @Composable
 fun ColumnScope.LeftSidebar(vm: AppViewModel) {
     val cs = MaterialTheme.colorScheme
-    PanelTabs(
-        icons = listOf(
-            Icons.Outlined.Folder to "Files",
-            Icons.Outlined.Search to "Search",
-            Icons.Outlined.BookmarkBorder to "Bookmarks",
-        ),
-        selected = vm.leftPanel,
-        onSelect = { vm.leftPanel = it },
-    )
-    HorizontalDivider(color = cs.outlineVariant)
     Box(
         Modifier
             .weight(1f)
             .fillMaxWidth(),
     ) {
-        when (vm.leftPanel) {
-            0 -> FilesPanel(vm)
-            1 -> SearchPanel(vm)
-            else -> BookmarksPanel(vm)
+        AnimatedContent(
+            targetState = vm.leftPanel,
+            transitionSpec = { fadeIn(tween(180)) togetherWith fadeOut(tween(120)) },
+            label = "leftPanel",
+        ) { panel ->
+            when (panel) {
+                0 -> FilesPanel(vm)
+                1 -> SearchPanel(vm)
+                else -> BookmarksPanel(vm)
+            }
         }
     }
-    HorizontalDivider(color = cs.outlineVariant)
-    // Vault switcher, help and settings at the bottom of the sidebar.
+    ViewSwitcherPill(
+        options = listOf(Lucide.Folder to "Files", Lucide.Search to "Search", Lucide.Bookmark to "Bookmarks"),
+        selected = vm.leftPanel,
+        onSelect = { vm.leftPanel = it },
+    )
+    // Vault name and counts (tap to switch vault), with settings beside it.
+    val (files, folders) = remember(vm.tree) { countTree(vm.tree) }
     Row(
         Modifier
             .fillMaxWidth()
-            .padding(horizontal = 4.dp, vertical = 4.dp),
+            .padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(
+        Column(
             Modifier
                 .weight(1f)
+                .clip(RoundedCornerShape(12.dp))
                 .clickable { vm.show(Overlay.Vaults) }
-                .padding(horizontal = 12.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
+                .padding(horizontal = 8.dp, vertical = 4.dp),
         ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    vm.vault?.name.orEmpty(),
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+                Spacer(Modifier.width(6.dp))
+                Icon(Lucide.ChevronDown, contentDescription = "Switch vault", tint = cs.onSurfaceVariant, modifier = Modifier.size(20.dp))
+            }
             Text(
-                vm.vault?.name.orEmpty(),
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f, fill = false),
+                "$files ${if (files == 1) "file" else "files"}, $folders ${if (folders == 1) "folder" else "folders"}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = cs.onSurfaceVariant,
             )
-            Icon(Icons.Default.UnfoldMore, contentDescription = "Switch vault", tint = cs.onSurfaceVariant, modifier = Modifier.size(18.dp))
         }
-        IconButton(onClick = { vm.closeSidebars(); vm.openHelp() }) {
-            Icon(Icons.Default.HelpOutline, contentDescription = "Help", tint = cs.onSurfaceVariant)
-        }
-        IconButton(onClick = { vm.show(Overlay.Settings) }) {
-            Icon(Icons.Default.Settings, contentDescription = "Settings", tint = cs.onSurfaceVariant)
-        }
+        CircleIconButton(Lucide.Settings, "Settings") { vm.show(Overlay.Settings) }
     }
 }
 
+private fun countTree(nodes: List<TreeNode>): Pair<Int, Int> {
+    var files = 0
+    var folders = 0
+    fun walk(list: List<TreeNode>) {
+        for (n in list) {
+            if (n.isDir) {
+                folders++
+                walk(n.children)
+            } else {
+                files++
+            }
+        }
+    }
+    walk(nodes)
+    return files to folders
+}
+
+/** Rounded "Files ⇕" button at the bottom of a sidebar that switches between its views. */
 @Composable
-fun PanelTabs(icons: List<Pair<ImageVector, String>>, selected: Int, onSelect: (Int) -> Unit) {
+fun ViewSwitcherPill(options: List<Pair<ImageVector, String>>, selected: Int, onSelect: (Int) -> Unit) {
     val cs = MaterialTheme.colorScheme
-    Row(
+    var open by remember { mutableStateOf(false) }
+    val (icon, label) = options[selected.coerceIn(options.indices)]
+    Box(
         Modifier
             .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
+            .padding(horizontal = 12.dp, vertical = 6.dp),
     ) {
-        icons.forEachIndexed { i, (icon, label) ->
-            Box(
-                Modifier
-                    .padding(end = 4.dp)
-                    .background(if (i == selected) cs.surfaceContainerHighest else Color.Transparent, RoundedCornerShape(8.dp)),
+        Surface(
+            onClick = { open = true },
+            shape = RoundedCornerShape(50),
+            color = cs.surfaceContainerHigh,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Row(
+                Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                IconButton(onClick = { onSelect(i) }) {
-                    Icon(icon, contentDescription = label, tint = if (i == selected) cs.onSurface else cs.onSurfaceVariant)
-                }
+                Icon(icon, null, tint = cs.onSurface, modifier = Modifier.size(22.dp))
+                Spacer(Modifier.width(12.dp))
+                Text(label, fontSize = 17.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                Icon(Lucide.ChevronsUpDown, contentDescription = "Switch view", tint = cs.onSurfaceVariant, modifier = Modifier.size(20.dp))
+            }
+        }
+        DropdownMenu(
+            expanded = open,
+            onDismissRequest = { open = false },
+            shape = RoundedCornerShape(16.dp),
+            containerColor = cs.surface,
+        ) {
+            options.forEachIndexed { i, (optIcon, optLabel) ->
+                DropdownMenuItem(
+                    text = { Text(optLabel, fontWeight = if (i == selected) FontWeight.Bold else FontWeight.Normal) },
+                    leadingIcon = { Icon(optIcon, null, modifier = Modifier.size(20.dp)) },
+                    onClick = {
+                        open = false
+                        onSelect(i)
+                    },
+                )
             }
         }
     }
@@ -273,18 +331,6 @@ private fun FilesPanel(vm: AppViewModel) {
             .onGloballyPositioned { panelBounds = it.boundsInRoot() },
     ) {
         Column {
-            PanelHeader("Files") {
-                if (vm.indexing) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
-                IconButton(onClick = { vm.createNote(vault.root) }) {
-                    Icon(Icons.Outlined.Edit, contentDescription = "New note", tint = cs.onSurfaceVariant)
-                }
-                IconButton(onClick = { newFolderIn = vault.root }) {
-                    Icon(Icons.Outlined.CreateNewFolder, contentDescription = "New folder", tint = cs.onSurfaceVariant)
-                }
-                IconButton(onClick = { expanded.clear() }) {
-                    Icon(Icons.Default.UnfoldLess, contentDescription = "Collapse all", tint = cs.onSurfaceVariant)
-                }
-            }
             if (drag.item != null) {
                 val d = drag.dest
                 Text(
@@ -307,7 +353,7 @@ private fun FilesPanel(vm: AppViewModel) {
             }
             LazyColumn(
                 state = listState,
-                contentPadding = PaddingValues(bottom = 120.dp),
+                contentPadding = PaddingValues(top = 8.dp, bottom = 16.dp),
                 modifier = Modifier
                     .weight(1f)
                     .onGloballyPositioned { listBounds = it.boundsInRoot() },
@@ -318,12 +364,13 @@ private fun FilesPanel(vm: AppViewModel) {
                     val isMd = !row.node.isDir && f.extension.equals("md", ignoreCase = true)
                     val isDropTarget = drag.item != null && row.node.isDir && drag.dest?.absolutePath == path
                     val isDragged = drag.item?.absolutePath == path
+                    val chevronAngle by animateFloatAsState(if (expanded[path] == true) 90f else 0f, label = "chevron")
                     val bg = when {
                         isDropTarget -> cs.primary.copy(alpha = 0.22f)
                         path == active -> cs.surfaceContainerHighest
                         else -> Color.Transparent
                     }
-                    Box {
+                    Box(Modifier.animateItem()) {
                         Row(
                             Modifier
                                 .fillMaxWidth()
@@ -378,15 +425,15 @@ private fun FilesPanel(vm: AppViewModel) {
                         ) {
                             if (row.node.isDir) {
                                 Icon(
-                                    if (expanded[path] == true) Icons.Default.ExpandMore else Icons.Default.ChevronRight,
-                                    null, tint = cs.onSurfaceVariant, modifier = Modifier.size(18.dp),
+                                    Lucide.ChevronRight,
+                                    null, tint = cs.onSurfaceVariant, modifier = Modifier.size(18.dp).rotate(chevronAngle),
                                 )
                                 Spacer(Modifier.width(4.dp))
-                                Icon(Icons.Outlined.Folder, null, tint = if (isDropTarget) cs.primary else cs.onSurfaceVariant, modifier = Modifier.size(18.dp))
+                                Icon(Lucide.Folder, null, tint = if (isDropTarget) cs.primary else cs.onSurfaceVariant, modifier = Modifier.size(18.dp))
                             } else {
                                 Spacer(Modifier.width(22.dp))
                                 Icon(
-                                    if (isMd) Icons.Outlined.Description else Icons.Outlined.InsertDriveFile,
+                                    if (isMd) Lucide.FileText else Lucide.File,
                                     null, tint = cs.onSurfaceVariant, modifier = Modifier.size(18.dp),
                                 )
                             }
@@ -422,6 +469,24 @@ private fun FilesPanel(vm: AppViewModel) {
                     }
                 }
             }
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(20.dp, Alignment.CenterHorizontally),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                IconButton(onClick = { vm.createNote(vault.root) }) {
+                    Icon(Lucide.SquarePen, contentDescription = "New note", tint = cs.onSurfaceVariant)
+                }
+                IconButton(onClick = { newFolderIn = vault.root }) {
+                    Icon(Lucide.FolderPlus, contentDescription = "New folder", tint = cs.onSurfaceVariant)
+                }
+                IconButton(onClick = { expanded.clear() }) {
+                    Icon(Lucide.ChevronsDownUp, contentDescription = "Collapse all", tint = cs.onSurfaceVariant)
+                }
+                if (vm.indexing) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+            }
         }
 
         // The item following your finger while dragging.
@@ -436,7 +501,7 @@ private fun FilesPanel(vm: AppViewModel) {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(
-                    if (drag.item?.isDirectory == true) Icons.Outlined.Folder else Icons.Outlined.Description,
+                    if (drag.item?.isDirectory == true) Lucide.Folder else Lucide.FileText,
                     null, tint = cs.primary, modifier = Modifier.size(18.dp),
                 )
                 Spacer(Modifier.width(8.dp))
@@ -478,9 +543,9 @@ private fun SearchPanel(vm: AppViewModel) {
             onValueChange = { vm.searchQuery = it },
             placeholder = { Text("Search notes, or tag:#name") },
             singleLine = true,
-            leadingIcon = { Icon(Icons.Outlined.Search, null) },
+            leadingIcon = { Icon(Lucide.Search, null) },
             trailingIcon = {
-                if (query.isNotEmpty()) IconButton(onClick = { vm.searchQuery = "" }) { Icon(Icons.Default.Close, "Clear") }
+                if (query.isNotEmpty()) IconButton(onClick = { vm.searchQuery = "" }) { Icon(Lucide.X, "Clear") }
             },
             colors = TextFieldDefaults.colors(
                 focusedIndicatorColor = Color.Transparent,
@@ -530,11 +595,11 @@ private fun BookmarksPanel(vm: AppViewModel) {
                         .padding(horizontal = 16.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Icon(Icons.Outlined.Bookmark, null, tint = cs.primary, modifier = Modifier.size(18.dp))
+                    Icon(Lucide.Bookmark, null, tint = cs.primary, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(10.dp))
                     Text(f.nameWithoutExtension, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                     IconButton(onClick = { vm.toggleBookmark(f.absolutePath) }) {
-                        Icon(Icons.Default.Close, contentDescription = "Remove bookmark", tint = cs.onSurfaceVariant, modifier = Modifier.size(18.dp))
+                        Icon(Lucide.X, contentDescription = "Remove bookmark", tint = cs.onSurfaceVariant, modifier = Modifier.size(18.dp))
                     }
                 }
             }

@@ -6,6 +6,13 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Environment
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -62,14 +69,25 @@ fun SlateApp(vm: AppViewModel) {
         // The workspace stays composed under overlays so open notes keep their state.
         if (vm.vault != null) WorkspaceScreen(vm)
 
-        when (val o = vm.overlay) {
-            Overlay.Vaults -> VaultsScreen(vm)
-            is Overlay.Browser -> BrowserScreen(vm, o.path)
-            Overlay.Settings -> SettingsScreen(vm)
-            Overlay.QuickSwitcher -> QuickSwitcher(vm)
-            Overlay.Commands -> CommandPalette(vm)
-            Overlay.Tabs -> TabSwitcher(vm)
-            null -> if (vm.vault == null) VaultsScreen(vm)
+        // Pages slide up and fade in, and fade back out when closed.
+        AnimatedContent(
+            targetState = vm.overlay,
+            transitionSpec = {
+                (fadeIn(tween(220)) + slideInVertically(tween(280)) { it / 14 }) togetherWith
+                    (fadeOut(tween(160)) + slideOutVertically(tween(200)) { it / 20 })
+            },
+            modifier = Modifier.fillMaxSize(),
+            label = "overlay",
+        ) { o ->
+            when (o) {
+                Overlay.Vaults -> VaultsScreen(vm)
+                is Overlay.Browser -> BrowserScreen(vm, o.path)
+                Overlay.Settings -> SettingsScreen(vm)
+                Overlay.QuickSwitcher -> QuickSwitcher(vm)
+                Overlay.Commands -> CommandPalette(vm)
+                Overlay.Tabs -> TabSwitcher(vm)
+                null -> if (vm.vault == null) VaultsScreen(vm)
+            }
         }
 
         MoveDialog(vm)
