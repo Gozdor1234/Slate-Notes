@@ -75,29 +75,20 @@ fun SettingsScreen(vm: AppViewModel) {
                 Text("Settings", style = MaterialTheme.typography.titleLarge)
             }
             LazyColumn(contentPadding = PaddingValues(bottom = 32.dp)) {
-                // ---- Help first, so it's easy to find
-                item { Group("Help & tips") }
+                // ---- Help: one row that opens the topic list
                 item {
-                    Text(
-                        "Tap a topic for a quick guide.",
-                        color = cs.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 2.dp),
-                    )
-                }
-                itemsIndexed(HelpTopics) { i, topic ->
                     Row(
                         Modifier
                             .fillMaxWidth()
-                            .clickable { vm.openHelp(i) }
-                            .padding(horizontal = 20.dp, vertical = 12.dp),
+                            .clickable { vm.openHelp() }
+                            .padding(horizontal = 20.dp, vertical = 14.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Icon(Icons.Outlined.Lightbulb, null, tint = cs.primary, modifier = Modifier.size(20.dp))
                         Spacer(Modifier.width(14.dp))
                         Column(Modifier.weight(1f)) {
-                            Text(topic.title)
-                            Text(topic.summary, style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
+                            Text("Help & tips")
+                            Text("How everything in Slate works", style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
                         }
                         Icon(Icons.Default.ChevronRight, null, tint = cs.onSurfaceVariant)
                     }
