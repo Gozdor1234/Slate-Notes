@@ -82,8 +82,10 @@ class Prefs(context: Context) {
     fun setBookmarks(vault: String, items: List<String>) = putList("bookmarks:$vault", items)
 
     /** Open tabs (absolute paths, "" for an empty tab) so the workspace comes back after a restart. */
-    fun tabs(vault: String): List<String> =
-        (sp.getString("tabs:$vault", null) ?: return emptyList()).split('\n')
+    fun tabs(vault: String): List<String> {
+        val raw = sp.getString("tabs:$vault", null) ?: return emptyList()
+        return raw.split('\n')
+    }
 
     fun saveTabs(vault: String, paths: List<String?>, active: Int) {
         sp.edit()
