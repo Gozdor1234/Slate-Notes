@@ -1,0 +1,5 @@
+<resources>
+    <style name="Theme.SlateNotes" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/slate_bg_light</item>
+    </style>
+</resources>
