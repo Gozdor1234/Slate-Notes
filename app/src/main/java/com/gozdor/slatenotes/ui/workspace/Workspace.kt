@@ -157,6 +157,7 @@ private fun ViewHeader(vm: AppViewModel) {
                                 onClick = { menu = false; vm.toggleBookmark(path) },
                             )
                             DropdownMenuItem(text = { Text("Rename") }, onClick = { menu = false; vm.requestRename() })
+                            DropdownMenuItem(text = { Text("Move file to…") }, onClick = { menu = false; vm.moveTarget = File(path) })
                             DropdownMenuItem(
                                 text = { Text("Open backlinks") },
                                 onClick = { menu = false; vm.openRight(0) },

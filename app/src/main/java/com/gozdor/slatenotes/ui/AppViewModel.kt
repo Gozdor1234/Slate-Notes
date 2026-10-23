@@ -365,6 +365,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             val target = dir ?: defaultNewNoteDir(v)
             val r = withContext(Dispatchers.IO) { runCatching { v.createNote(target) } }
+            if (target != v.root) expandedFolders[target.absolutePath] = true
             r.onSuccess {
                 justCreated = it.absolutePath
                 index = index.withNote(v.indexOne(it, ""))
@@ -380,6 +381,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             val r = withContext(Dispatchers.IO) { runCatching { v.createFolder(parent, name) } }
             r.onFailure { toast(it.message ?: "Couldn't create folder") }
+            if (parent != v.root) expandedFolders[parent.absolutePath] = true
             refresh()
         }
     }
@@ -441,6 +443,29 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             val r = withContext(Dispatchers.IO) { runCatching { v.rename(f, newName) } }
             r.onSuccess { nf -> remap(f.absolutePath, nf.absolutePath) }
                 .onFailure { toast(it.message ?: "Rename failed") }
+            refresh()
+        }
+    }
+
+    /** Folder expansion in the file explorer, kept here so it survives closing the sidebar. */
+    val expandedFolders = mutableStateMapOf<String, Boolean>()
+
+    /** File waiting for the "Move to…" folder picker; null = picker closed. */
+    var moveTarget by mutableStateOf<File?>(null)
+
+    fun moveFile(f: File, destDir: File) {
+        val v = vault ?: return
+        if (f.parentFile?.absolutePath == destDir.absolutePath) return
+        viewModelScope.launch {
+            val r = withContext(Dispatchers.IO) { runCatching { v.move(f, destDir) } }
+            r.onSuccess { nf ->
+                if (f.isDirectory || nf.isDirectory) {
+                    expandedFolders.remove(f.absolutePath)?.let { expandedFolders[nf.absolutePath] = it }
+                }
+                if (destDir != v.root) expandedFolders[destDir.absolutePath] = true
+                remap(f.absolutePath, nf.absolutePath)
+                toast("Moved to ${if (destDir == v.root) "vault folder" else destDir.name}")
+            }.onFailure { toast(it.message ?: "Move failed") }
             refresh()
         }
     }

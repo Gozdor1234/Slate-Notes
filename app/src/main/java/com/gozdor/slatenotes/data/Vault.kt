@@ -86,6 +86,24 @@ class Vault(val root: File) {
         if (!f.renameTo(target)) throw IOException("Couldn't delete \"${f.name}\"")
     }
 
+    /** True if [dest] is [dir] itself or somewhere inside it (a folder can't be moved into itself). */
+    fun isSelfOrInside(dir: File, dest: File): Boolean {
+        val d = dir.absolutePath
+        val t = dest.absolutePath
+        return t == d || t.startsWith("$d/")
+    }
+
+    /** Moves a note or folder into [destDir], keeping its name. */
+    fun move(f: File, destDir: File): File {
+        if (!destDir.isDirectory) throw IOException("That folder no longer exists")
+        if (f.isDirectory && isSelfOrInside(f, destDir)) throw IOException("A folder can't be moved into itself")
+        val target = File(destDir, f.name)
+        if (target.absolutePath == f.absolutePath) return f
+        if (target.exists()) throw IOException("\"${f.name}\" already exists in ${if (destDir == root) "the vault folder" else destDir.name}")
+        if (!f.renameTo(target)) throw IOException("Couldn't move \"${f.name}\"")
+        return target
+    }
+
     fun deletePermanently(f: File) {
         if (!f.deleteRecursively()) throw IOException("Couldn't delete \"${f.name}\"")
     }

@@ -208,6 +208,7 @@ fun CommandPalette(vm: AppViewModel) {
         Command("Bookmarks: Show bookmarks", run = then { vm.openLeft(2) }),
         Command("Toggle reading view", needsNote = true, run = then { vm.setReading(tabId, !vm.isReading(tabId)) }),
         Command("Rename file", needsNote = true, run = then { vm.requestRename() }),
+        Command("Move current file to another folder", needsNote = true, run = then { path?.let { vm.moveTarget = File(it) } }),
         Command(
             if (path != null && vm.isBookmarked(path)) "Bookmarks: Remove bookmark" else "Bookmarks: Bookmark current file",
             needsNote = true,

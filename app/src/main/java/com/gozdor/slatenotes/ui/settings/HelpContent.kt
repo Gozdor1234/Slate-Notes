@@ -57,8 +57,18 @@ val HelpTopics: List<HelpTopic> = listOf(
                 bullets = listOf(
                     "Open the left sidebar and pick the Files tab to see your vault's folders and notes.",
                     "Tap a folder to expand it. The collapse button at the top folds everything back up.",
-                    "Long-press a note or folder for: New note, New folder, Open in new tab, Bookmark, Rename and Delete.",
+                    "Long-press a note or folder and let go for its menu: New note, New folder, Open in new tab, Bookmark, Move to, Rename and Delete.",
                     "Use the buttons at the top of Files to create a note or folder in the vault's top level.",
+                ),
+            ),
+            HelpBlock(
+                heading = "Moving notes and folders",
+                bullets = listOf(
+                    "Drag and drop: long-press a note or folder until your phone buzzes, then drag it without letting go. Drop it on a folder to move it inside, or on empty space to move it to the vault's top level.",
+                    "Hover over a closed folder for a moment while dragging and it opens, so you can drop into subfolders.",
+                    "Near the top or bottom of the list, the list scrolls by itself while you drag.",
+                    "Or use Move to… from the long-press menu, the note's ⋮ menu, or the command palette, and pick a folder from the list.",
+                    "A folder can't be moved into itself, and a move is refused if the destination already has something with the same name.",
                 ),
             ),
             HelpBlock(

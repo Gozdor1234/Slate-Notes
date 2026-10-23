@@ -1,9 +1,7 @@
 package com.gozdor.slatenotes.ui.workspace
 
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -47,7 +45,6 @@ import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -69,6 +66,23 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import java.io.File
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.unit.IntOffset
+import kotlin.math.roundToInt
 
 @Composable
 fun ColumnScope.LeftSidebar(vm: AppViewModel) {
@@ -179,103 +193,254 @@ private fun flatten(nodes: List<TreeNode>, expanded: Map<String, Boolean>, depth
     }
 }
 
-/** Folder expansion survives closing the sidebar. */
-private val expandedFolders = mutableStateMapOf<String, Boolean>()
+/** State of an in-progress drag in the file explorer. */
+private class DragState {
+    var item by mutableStateOf<File?>(null)
+    var label by mutableStateOf("")
 
-@OptIn(ExperimentalFoundationApi::class)
+    /** Finger position in root coordinates. */
+    var pointer by mutableStateOf(Offset.Zero)
+
+    /** Folder the item would be dropped into; null = not a valid drop spot. */
+    var dest by mutableStateOf<File?>(null)
+    var travelled = 0f
+}
+
 @Composable
 private fun FilesPanel(vm: AppViewModel) {
     val cs = MaterialTheme.colorScheme
     val vault = vm.vault ?: return
-    val snapshot = expandedFolders.toMap()
+    val expanded = vm.expandedFolders
+    val snapshot = expanded.toMap()
     val rows = remember(vm.tree, snapshot) { mutableListOf<TreeRow>().also { flatten(vm.tree, snapshot, 0, it) } }
     var menuFor by remember { mutableStateOf<String?>(null) }
     var newFolderIn by remember { mutableStateOf<File?>(null) }
     var renaming by remember { mutableStateOf<File?>(null) }
     var deleting by remember { mutableStateOf<File?>(null) }
     val active = vm.activePath
+    val haptic = LocalHapticFeedback.current
 
-    Column {
-        PanelHeader("Files") {
-            if (vm.indexing) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
-            IconButton(onClick = { vm.createNote(vault.root) }) {
-                Icon(Icons.Outlined.Edit, contentDescription = "New note", tint = cs.onSurfaceVariant)
-            }
-            IconButton(onClick = { newFolderIn = vault.root }) {
-                Icon(Icons.Outlined.CreateNewFolder, contentDescription = "New folder", tint = cs.onSurfaceVariant)
-            }
-            IconButton(onClick = { expandedFolders.clear() }) {
-                Icon(Icons.Default.UnfoldLess, contentDescription = "Collapse all", tint = cs.onSurfaceVariant)
-            }
+    val drag = remember { DragState() }
+    val rowBounds = remember { mutableMapOf<String, Rect>() }
+    var panelBounds by remember { mutableStateOf(Rect.Zero) }
+    var listBounds by remember { mutableStateOf(Rect.Zero) }
+    val listState = rememberLazyListState()
+    val currentRows by rememberUpdatedState(rows)
+
+    // Works out which folder the finger is over. Over a note = that note's folder. Empty space = vault folder.
+    fun computeDest(): File? {
+        val item = drag.item ?: return null
+        val p = drag.pointer
+        if (!panelBounds.contains(p)) return null
+        val hit = currentRows.firstOrNull { r -> rowBounds[r.node.file.absolutePath]?.contains(p) == true }
+        val dest = when {
+            hit == null -> vault.root
+            hit.node.isDir -> hit.node.file
+            else -> hit.node.file.parentFile ?: vault.root
         }
-        if (rows.isEmpty() && !vm.indexing) {
-            EmptyHint("No notes yet. Tap the new note button above.")
+        if (item.isDirectory && vault.isSelfOrInside(item, dest)) return null
+        return dest
+    }
+
+    // While dragging: scroll when near the top or bottom edge, and open a folder you hover over.
+    LaunchedEffect(drag.item) {
+        if (drag.item == null) return@LaunchedEffect
+        var hoverDir: String? = null
+        var hoverSince = 0L
+        while (drag.item != null) {
+            val y = drag.pointer.y
+            val edge = 140f
+            when {
+                y < listBounds.top + edge -> listState.scrollBy(-18f)
+                y > listBounds.bottom - edge -> listState.scrollBy(18f)
+            }
+            drag.dest = computeDest()
+            val d = drag.dest
+            val overDir = d?.takeIf { it != vault.root && it.absolutePath != drag.item?.parentFile?.absolutePath }?.absolutePath
+            if (overDir != hoverDir) {
+                hoverDir = overDir
+                hoverSince = System.currentTimeMillis()
+            } else if (overDir != null && expanded[overDir] != true && System.currentTimeMillis() - hoverSince > 700) {
+                expanded[overDir] = true
+            }
+            delay(16)
         }
-        LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
-            items(rows, key = { it.node.file.absolutePath }) { row ->
-                val f = row.node.file
-                val path = f.absolutePath
-                val isMd = !row.node.isDir && f.extension.equals("md", ignoreCase = true)
-                Box {
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 6.dp)
-                            .background(if (path == active) cs.surfaceContainerHighest else Color.Transparent, RoundedCornerShape(6.dp))
-                            .combinedClickable(
-                                onClick = {
+    }
+
+    Box(
+        Modifier
+            .fillMaxSize()
+            .onGloballyPositioned { panelBounds = it.boundsInRoot() },
+    ) {
+        Column {
+            PanelHeader("Files") {
+                if (vm.indexing) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                IconButton(onClick = { vm.createNote(vault.root) }) {
+                    Icon(Icons.Outlined.Edit, contentDescription = "New note", tint = cs.onSurfaceVariant)
+                }
+                IconButton(onClick = { newFolderIn = vault.root }) {
+                    Icon(Icons.Outlined.CreateNewFolder, contentDescription = "New folder", tint = cs.onSurfaceVariant)
+                }
+                IconButton(onClick = { expanded.clear() }) {
+                    Icon(Icons.Default.UnfoldLess, contentDescription = "Collapse all", tint = cs.onSurfaceVariant)
+                }
+            }
+            if (drag.item != null) {
+                val d = drag.dest
+                Text(
+                    when {
+                        d == null -> "Can't drop here"
+                        d.absolutePath == drag.item?.parentFile?.absolutePath -> "Already in ${if (d == vault.root) "the vault folder" else d.name}"
+                        d == vault.root -> "Release to move to the vault folder"
+                        else -> "Release to move into ${d.name}"
+                    },
+                    style = MaterialTheme.typography.labelMedium,
+                    color = cs.onPrimaryContainer,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp)
+                        .background(cs.primaryContainer, RoundedCornerShape(8.dp))
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                )
+            } else if (rows.isEmpty() && !vm.indexing) {
+                EmptyHint("No notes yet. Tap the new note button above.")
+            }
+            LazyColumn(
+                state = listState,
+                contentPadding = PaddingValues(bottom = 120.dp),
+                modifier = Modifier
+                    .weight(1f)
+                    .onGloballyPositioned { listBounds = it.boundsInRoot() },
+            ) {
+                items(rows, key = { it.node.file.absolutePath }) { row ->
+                    val f = row.node.file
+                    val path = f.absolutePath
+                    val isMd = !row.node.isDir && f.extension.equals("md", ignoreCase = true)
+                    val isDropTarget = drag.item != null && row.node.isDir && drag.dest?.absolutePath == path
+                    val isDragged = drag.item?.absolutePath == path
+                    val bg = when {
+                        isDropTarget -> cs.primary.copy(alpha = 0.22f)
+                        path == active -> cs.surfaceContainerHighest
+                        else -> Color.Transparent
+                    }
+                    Box {
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 6.dp)
+                                .onGloballyPositioned { rowBounds[path] = it.boundsInRoot() }
+                                .background(bg, RoundedCornerShape(6.dp))
+                                // Long-press: release without moving opens the menu; move to drag.
+                                .pointerInput(path) {
+                                    detectDragGesturesAfterLongPress(
+                                        onDragStart = { local ->
+                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            drag.item = f
+                                            drag.label = if (f.isDirectory) f.name else f.nameWithoutExtension
+                                            drag.travelled = 0f
+                                            drag.pointer = (rowBounds[path]?.topLeft ?: Offset.Zero) + local
+                                            drag.dest = null
+                                        },
+                                        onDrag = { change, amount ->
+                                            change.consume()
+                                            drag.travelled += amount.getDistance()
+                                            drag.pointer += amount
+                                        },
+                                        onDragEnd = {
+                                            val item = drag.item
+                                            val dest = computeDest()
+                                            val moved = drag.travelled > 24f
+                                            drag.item = null
+                                            drag.dest = null
+                                            if (!moved) {
+                                                menuFor = path
+                                            } else if (item != null && dest != null) {
+                                                vm.moveFile(item, dest)
+                                            }
+                                        },
+                                        onDragCancel = {
+                                            drag.item = null
+                                            drag.dest = null
+                                        },
+                                    )
+                                }
+                                .clickable {
                                     when {
-                                        row.node.isDir -> expandedFolders[path] = expandedFolders[path] != true
+                                        row.node.isDir -> expanded[path] = expanded[path] != true
                                         isMd -> vm.openNote(f)
                                         f.extension.equals("canvas", ignoreCase = true) -> vm.toast("Canvas files open in a later version")
                                         else -> vm.toast("Can't open .${f.extension} files yet")
                                     }
-                                },
-                                onLongClick = { menuFor = path },
-                            )
-                            .padding(start = (8 + row.depth * 16).dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        if (row.node.isDir) {
-                            Icon(
-                                if (expandedFolders[path] == true) Icons.Default.ExpandMore else Icons.Default.ChevronRight,
-                                null, tint = cs.onSurfaceVariant, modifier = Modifier.size(18.dp),
-                            )
-                            Spacer(Modifier.width(4.dp))
-                            Icon(Icons.Outlined.Folder, null, tint = cs.onSurfaceVariant, modifier = Modifier.size(18.dp))
-                        } else {
-                            Spacer(Modifier.width(22.dp))
-                            Icon(
-                                if (isMd) Icons.Outlined.Description else Icons.Outlined.InsertDriveFile,
-                                null, tint = cs.onSurfaceVariant, modifier = Modifier.size(18.dp),
+                                }
+                                .padding(start = (8 + row.depth * 16).dp, end = 8.dp, top = 8.dp, bottom = 8.dp)
+                                .alpha(if (isDragged) 0.4f else 1f),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            if (row.node.isDir) {
+                                Icon(
+                                    if (expanded[path] == true) Icons.Default.ExpandMore else Icons.Default.ChevronRight,
+                                    null, tint = cs.onSurfaceVariant, modifier = Modifier.size(18.dp),
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Icon(Icons.Outlined.Folder, null, tint = if (isDropTarget) cs.primary else cs.onSurfaceVariant, modifier = Modifier.size(18.dp))
+                            } else {
+                                Spacer(Modifier.width(22.dp))
+                                Icon(
+                                    if (isMd) Icons.Outlined.Description else Icons.Outlined.InsertDriveFile,
+                                    null, tint = cs.onSurfaceVariant, modifier = Modifier.size(18.dp),
+                                )
+                            }
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                if (isMd) f.nameWithoutExtension else f.name,
+                                color = if (row.node.isDir || isMd) cs.onSurface else cs.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                             )
                         }
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            if (isMd) f.nameWithoutExtension else f.name,
-                            color = if (row.node.isDir || isMd) cs.onSurface else cs.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                    DropdownMenu(expanded = menuFor == path, onDismissRequest = { menuFor = null }) {
-                        if (row.node.isDir) {
-                            DropdownMenuItem(text = { Text("New note") }, onClick = { menuFor = null; vm.createNote(f) })
-                            DropdownMenuItem(text = { Text("New folder") }, onClick = { menuFor = null; newFolderIn = f })
-                        } else if (isMd) {
-                            DropdownMenuItem(text = { Text("Open in new tab") }, onClick = { menuFor = null; vm.openNote(f, newTab = true) })
+                        DropdownMenu(expanded = menuFor == path, onDismissRequest = { menuFor = null }) {
+                            if (row.node.isDir) {
+                                DropdownMenuItem(text = { Text("New note") }, onClick = { menuFor = null; vm.createNote(f) })
+                                DropdownMenuItem(text = { Text("New folder") }, onClick = { menuFor = null; newFolderIn = f })
+                            } else if (isMd) {
+                                DropdownMenuItem(text = { Text("Open in new tab") }, onClick = { menuFor = null; vm.openNote(f, newTab = true) })
+                                DropdownMenuItem(
+                                    text = { Text(if (vm.isBookmarked(path)) "Remove bookmark" else "Bookmark") },
+                                    onClick = { menuFor = null; vm.toggleBookmark(path) },
+                                )
+                            }
                             DropdownMenuItem(
-                                text = { Text(if (vm.isBookmarked(path)) "Remove bookmark" else "Bookmark") },
-                                onClick = { menuFor = null; vm.toggleBookmark(path) },
+                                text = { Text(if (row.node.isDir) "Move folder to…" else "Move file to…") },
+                                onClick = { menuFor = null; vm.moveTarget = f },
                             )
+                            DropdownMenuItem(text = { Text("Rename") }, onClick = { menuFor = null; renaming = f })
+                            DropdownMenuItem(text = { Text("Delete", color = cs.error) }, onClick = {
+                                menuFor = null
+                                if (vm.settings.confirmDelete) deleting = f else vm.delete(f)
+                            })
                         }
-                        DropdownMenuItem(text = { Text("Rename") }, onClick = { menuFor = null; renaming = f })
-                        DropdownMenuItem(text = { Text("Delete", color = cs.error) }, onClick = {
-                            menuFor = null
-                            if (vm.settings.confirmDelete) deleting = f else vm.delete(f)
-                        })
                     }
                 }
+            }
+        }
+
+        // The item following your finger while dragging.
+        if (drag.item != null) {
+            val p = drag.pointer - panelBounds.topLeft
+            Row(
+                Modifier
+                    .offset { IntOffset((p.x + 24).roundToInt(), (p.y - 56).roundToInt()) }
+                    .shadow(6.dp, RoundedCornerShape(8.dp))
+                    .background(cs.surfaceContainerHighest, RoundedCornerShape(8.dp))
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    if (drag.item?.isDirectory == true) Icons.Outlined.Folder else Icons.Outlined.Description,
+                    null, tint = cs.primary, modifier = Modifier.size(18.dp),
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(drag.label, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
     }
@@ -284,7 +449,6 @@ private fun FilesPanel(vm: AppViewModel) {
         NameDialog("New folder", "Untitled", "Create", { newFolderIn = null }) {
             newFolderIn = null
             vm.createFolder(parent, it)
-            expandedFolders[parent.absolutePath] = true
         }
     }
     renaming?.let { f ->

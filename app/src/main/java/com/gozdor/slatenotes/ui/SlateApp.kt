@@ -26,6 +26,7 @@ import com.gozdor.slatenotes.ui.screens.VaultsScreen
 import com.gozdor.slatenotes.ui.settings.HelpSheet
 import com.gozdor.slatenotes.ui.settings.SettingsScreen
 import com.gozdor.slatenotes.ui.workspace.CommandPalette
+import com.gozdor.slatenotes.ui.workspace.MoveDialog
 import com.gozdor.slatenotes.ui.workspace.QuickSwitcher
 import com.gozdor.slatenotes.ui.workspace.TabSwitcher
 import com.gozdor.slatenotes.ui.workspace.WorkspaceScreen
@@ -71,6 +72,7 @@ fun SlateApp(vm: AppViewModel) {
             null -> if (vm.vault == null) VaultsScreen(vm)
         }
 
+        MoveDialog(vm)
         HelpSheet(vm)
     }
 }
