@@ -346,6 +346,7 @@ private fun EmptyTab(vm: AppViewModel) {
             .fillMaxSize()
             .nestedScroll(pull),
     ) {
+        val viewport = maxHeight
         Column(
             Modifier
                 .fillMaxSize()
@@ -354,7 +355,7 @@ private fun EmptyTab(vm: AppViewModel) {
             Column(
                 Modifier
                     .fillMaxWidth()
-                    .heightIn(min = maxHeight),
+                    .heightIn(min = viewport),
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
@@ -367,6 +368,7 @@ private fun EmptyTab(vm: AppViewModel) {
 @Composable
 fun EmptyState(title: String, actions: List<Pair<String, () -> Unit>>, modifier: Modifier = Modifier) {
     BoxWithConstraints(modifier.fillMaxSize()) {
+        val viewport = maxHeight
         Column(
             Modifier
                 .fillMaxSize()
@@ -375,7 +377,7 @@ fun EmptyState(title: String, actions: List<Pair<String, () -> Unit>>, modifier:
             Column(
                 Modifier
                     .fillMaxWidth()
-                    .heightIn(min = maxHeight)
+                    .heightIn(min = viewport)
                     .padding(32.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
                 horizontalAlignment = Alignment.CenterHorizontally,
