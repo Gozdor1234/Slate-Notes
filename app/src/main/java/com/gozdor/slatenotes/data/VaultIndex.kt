@@ -53,17 +53,45 @@ class VaultIndex(
         display.entries.map { it.value to (counts[it.key] ?: 0) }.sortedBy { it.first.lowercase() }
     }
 
+    private val byName: Map<String, List<IndexedNote>> by lazy { notes.values.groupBy { it.name.lowercase() } }
+
     /** Resolves a [[link]] target the way Obsidian does: path match if it has "/", otherwise by file name, shortest path wins. */
     fun resolve(target: String): IndexedNote? {
         val t = target.trim().removeSuffix(".md").replace('\\', '/').trimStart('/')
         if (t.isEmpty()) return null
         val tl = t.lowercase()
-        val candidates = notes.values.filter { n ->
-            val relNoExt = n.rel.removeSuffix(".md").lowercase()
-            if (tl.contains('/')) relNoExt == tl || relNoExt.endsWith("/$tl") else n.name.lowercase() == tl
+        val candidates = if (tl.contains('/')) {
+            notes.values.filter { n ->
+                val relNoExt = n.rel.removeSuffix(".md").lowercase()
+                relNoExt == tl || relNoExt.endsWith("/$tl")
+            }
+        } else {
+            byName[tl].orEmpty()
         }
         return candidates.minByOrNull { it.rel.length }
             ?: notes.values.firstOrNull { n -> n.aliases.any { it.equals(t, ignoreCase = true) } }
+    }
+
+    /** Notes that link to [path]. */
+    fun backlinks(path: String): List<IndexedNote> =
+        notes.values
+            .filter { n -> n.file.absolutePath != path && n.links.any { resolve(it)?.file?.absolutePath == path } }
+            .sortedBy { it.name.lowercase() }
+
+    /** Links in [path]'s note, each with the note it resolves to (null = not created yet). */
+    fun outgoing(path: String): List<Pair<String, IndexedNote?>> =
+        notes[path]?.links.orEmpty().map { it to resolve(it) }
+
+    /** Quick switcher matching: names and aliases, best matches first. */
+    fun switcher(query: String, limit: Int = 60): List<IndexedNote> {
+        val q = query.trim().lowercase()
+        if (q.isEmpty()) return emptyList()
+        return notes.values.mapNotNull { n ->
+            val best = (listOf(n.name) + n.aliases).mapNotNull { Fuzzy.score(q, it.lowercase()) }.minOrNull()
+            best?.let { n to it }
+        }.sortedWith(compareBy<Pair<IndexedNote, Int>> { it.second }.thenBy { it.first.name.length })
+            .take(limit)
+            .map { it.first }
     }
 
     fun resolveAttachment(root: File, target: String): File? {

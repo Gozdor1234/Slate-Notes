@@ -86,6 +86,10 @@ class Vault(val root: File) {
         if (!f.renameTo(target)) throw IOException("Couldn't delete \"${f.name}\"")
     }
 
+    fun deletePermanently(f: File) {
+        if (!f.deleteRecursively()) throw IOException("Couldn't delete \"${f.name}\"")
+    }
+
     private fun uniqueFile(dir: File, base: String, ext: String): File {
         var f = File(dir, "$base$ext")
         var i = 1

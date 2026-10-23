@@ -4,13 +4,17 @@ import android.app.Application
 import android.os.Environment
 import android.widget.Toast
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.gozdor.slatenotes.data.IndexedNote
 import com.gozdor.slatenotes.data.Prefs
+import com.gozdor.slatenotes.data.SlateSettings
 import com.gozdor.slatenotes.data.TreeNode
 import com.gozdor.slatenotes.data.Vault
 import com.gozdor.slatenotes.data.VaultIndex
@@ -19,16 +23,27 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 
-sealed interface Screen {
-    data object Vaults : Screen
-    data class Browser(val path: String) : Screen
-    data object Home : Screen
-    data class Editor(val path: String) : Screen
-    data class Search(val initial: String = "") : Screen
+/** Full-screen layers drawn above the workspace. */
+sealed interface Overlay {
+    data object Vaults : Overlay
+    data class Browser(val path: String) : Overlay
+    data object Settings : Overlay
+    data object QuickSwitcher : Overlay
+    data object Commands : Overlay
+    data object Tabs : Overlay
 }
+
+/** A tab with its own back/forward history. A null entry is an empty "new tab". */
+data class Tab(val id: Long, val history: List<String?>, val pos: Int) {
+    val path: String? get() = history.getOrNull(pos)
+}
+
+data class JumpRequest(val path: String, val offset: Int)
 
 class AppViewModel(app: Application) : AndroidViewModel(app) {
     private val prefs = Prefs(app)
+
+    var settings by mutableStateOf(prefs.settings()); private set
 
     var vaultPaths by mutableStateOf(prefs.vaults()); private set
     var vault by mutableStateOf<Vault?>(null); private set
@@ -36,56 +51,123 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     var index by mutableStateOf(VaultIndex.EMPTY); private set
     var indexing by mutableStateOf(false); private set
     var recents by mutableStateOf<List<String>>(emptyList()); private set
+    var bookmarks by mutableStateOf<List<String>>(emptyList()); private set
 
-    /** A note just created from the UI: its editor opens with the title selected for naming. */
+    val tabs = mutableStateListOf<Tab>()
+    var activeTab by mutableIntStateOf(0); private set
+    private val readingByTab = mutableStateMapOf<Long, Boolean>()
+    private var nextTabId = 1L
+
+    val overlays = mutableStateListOf<Overlay>()
+    val overlay: Overlay? get() = overlays.lastOrNull()
+
+    var leftOpen by mutableStateOf(false)
+    var rightOpen by mutableStateOf(false)
+    var leftPanel by mutableIntStateOf(0)
+    var rightPanel by mutableIntStateOf(0)
+    var searchQuery by mutableStateOf("")
+
+    /** Help sheet: null = closed, -1 = topic list, n = topic n. */
+    var helpTopic by mutableStateOf<Int?>(null)
+
+    // One-shot requests the open note view picks up.
+    var jump by mutableStateOf<JumpRequest?>(null)
+    var renameRequest by mutableLongStateOf(0L); private set
+    var insertRequest by mutableStateOf<String?>(null)
     var justCreated: String? = null
-
-    private val stack = mutableStateListOf<Screen>()
-    val screen: Screen get() = stack.lastOrNull() ?: Screen.Vaults
-    val canGoBack: Boolean get() = stack.size > 1
 
     private var started = false
 
     val storageRoot: File get() = Environment.getExternalStorageDirectory()
+
+    // ---------------------------------------------------------------- startup
 
     fun start() {
         if (started) return
         started = true
         val last = prefs.lastVault()
         if (last != null && File(last).isDirectory) openVault(File(last))
-        else {
-            stack.clear()
-            stack.add(Screen.Vaults)
+    }
+
+    fun updateSettings(transform: (SlateSettings) -> SlateSettings) {
+        settings = transform(settings)
+        prefs.saveSettings(settings)
+    }
+
+    // ---------------------------------------------------------------- overlays, sidebars, back
+
+    fun show(o: Overlay) {
+        closeSidebars()
+        overlays.add(o)
+    }
+
+    fun closeOverlay() {
+        if (overlays.isNotEmpty()) overlays.removeAt(overlays.lastIndex)
+    }
+
+    fun closeSidebars() {
+        leftOpen = false
+        rightOpen = false
+    }
+
+    fun openLeft(panel: Int? = null) {
+        panel?.let { leftPanel = it }
+        rightOpen = false
+        leftOpen = true
+    }
+
+    fun openRight(panel: Int? = null) {
+        panel?.let { rightPanel = it }
+        leftOpen = false
+        rightOpen = true
+    }
+
+    /** True when the system back button has something to do inside the app. */
+    val backHandled: Boolean
+        get() = helpTopic != null || leftOpen || rightOpen || overlays.isNotEmpty() || canGoBack
+
+    fun handleBack() {
+        when {
+            helpTopic != null -> helpTopic = if (helpTopic == -1 || helpFromSettings) null else -1
+            leftOpen || rightOpen -> closeSidebars()
+            overlays.isNotEmpty() -> closeOverlay()
+            canGoBack -> goBack()
         }
     }
 
-    // ---- navigation ----
+    /** When help was opened straight to a topic from Settings, back closes it instead of showing the list. */
+    var helpFromSettings = false
 
-    fun navigate(s: Screen) {
-        stack.add(s)
+    fun openHelp(topic: Int? = null) {
+        helpFromSettings = topic != null
+        helpTopic = topic ?: -1
     }
 
-    fun back() {
-        if (stack.size > 1) stack.removeAt(stack.lastIndex)
-    }
-
-    private fun replaceTop(s: Screen) {
-        if (stack.isEmpty()) stack.add(s) else stack[stack.lastIndex] = s
-    }
-
-    // ---- vaults ----
+    // ---------------------------------------------------------------- vaults
 
     fun openVault(dir: File) {
         val v = Vault(dir)
+        val key = dir.absolutePath
         vault = v
         tree = emptyList()
         index = VaultIndex.EMPTY
-        prefs.addVault(dir.absolutePath)
-        prefs.setLastVault(dir.absolutePath)
+        prefs.addVault(key)
+        prefs.setLastVault(key)
         vaultPaths = prefs.vaults()
-        recents = prefs.recents(dir.absolutePath)
-        stack.clear()
-        stack.add(Screen.Home)
+        recents = prefs.recents(key)
+        bookmarks = prefs.bookmarks(key)
+
+        tabs.clear()
+        readingByTab.clear()
+        prefs.tabs(key).forEach { p ->
+            val path = p.ifEmpty { null }?.takeIf { File(it).isFile }
+            tabs.add(Tab(nextTabId++, listOf(path), 0))
+        }
+        if (tabs.isEmpty()) tabs.add(Tab(nextTabId++, listOf(null), 0))
+        activeTab = prefs.activeTab(key).coerceIn(0, tabs.lastIndex)
+
+        overlays.clear()
+        closeSidebars()
         refresh()
     }
 
@@ -107,9 +189,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val v = vault ?: return
         viewModelScope.launch {
             indexing = true
-            val result = withContext(Dispatchers.IO) {
-                runCatching { v.buildTree() to v.buildIndex() }
-            }
+            val result = withContext(Dispatchers.IO) { runCatching { v.buildTree() to v.buildIndex() } }
             if (vault === v) {
                 result.onSuccess { (t, i) ->
                     tree = t
@@ -124,40 +204,190 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         if (vault != null) refresh()
     }
 
-    // ---- notes ----
+    // ---------------------------------------------------------------- tabs and history
 
-    fun openNote(f: File) {
-        val v = vault ?: return
-        prefs.addRecent(v.root.absolutePath, v.rel(f))
-        recents = prefs.recents(v.root.absolutePath)
-        navigate(Screen.Editor(f.absolutePath))
+    val activeTabId: Long get() = tabs.getOrNull(activeTab)?.id ?: -1L
+    val activePath: String? get() = tabs.getOrNull(activeTab)?.path
+    val activeNote: IndexedNote? get() = activePath?.let { index.notes[it] }
+
+    val canGoBack: Boolean get() = (tabs.getOrNull(activeTab)?.pos ?: 0) > 0
+    val canGoForward: Boolean
+        get() = tabs.getOrNull(activeTab)?.let { it.pos < it.history.lastIndex } ?: false
+
+    fun isReading(tabId: Long): Boolean = readingByTab[tabId] ?: settings.defaultReading
+
+    fun setReading(tabId: Long, reading: Boolean) {
+        readingByTab[tabId] = reading
     }
 
+    fun openNote(f: File, newTab: Boolean = false) {
+        val v = vault ?: return
+        val p = f.absolutePath
+        prefs.addRecent(v.root.absolutePath, v.rel(f))
+        recents = prefs.recents(v.root.absolutePath)
+
+        if (newTab || tabs.isEmpty()) {
+            tabs.add(Tab(nextTabId++, listOf(p), 0))
+            activeTab = tabs.lastIndex
+        } else {
+            val t = tabs[activeTab]
+            if (t.path != p) {
+                // An empty tab is replaced rather than kept in history.
+                val base = if (t.path == null) t.history.take(t.pos) else t.history.take(t.pos + 1)
+                val h = (base + p).takeLast(50)
+                tabs[activeTab] = t.copy(history = h, pos = h.lastIndex)
+            }
+        }
+        overlays.clear()
+        closeSidebars()
+        saveTabs()
+    }
+
+    fun goBack() {
+        val t = tabs.getOrNull(activeTab) ?: return
+        if (t.pos > 0) tabs[activeTab] = t.copy(pos = t.pos - 1)
+        saveTabs()
+    }
+
+    fun goForward() {
+        val t = tabs.getOrNull(activeTab) ?: return
+        if (t.pos < t.history.lastIndex) tabs[activeTab] = t.copy(pos = t.pos + 1)
+        saveTabs()
+    }
+
+    fun newTab() {
+        tabs.add(Tab(nextTabId++, listOf(null), 0))
+        activeTab = tabs.lastIndex
+        overlays.clear()
+        closeSidebars()
+        saveTabs()
+    }
+
+    fun switchTab(i: Int) {
+        if (i in tabs.indices) activeTab = i
+        overlays.clear()
+        saveTabs()
+    }
+
+    fun closeTab(i: Int) {
+        if (i !in tabs.indices) return
+        readingByTab.remove(tabs[i].id)
+        tabs.removeAt(i)
+        if (tabs.isEmpty()) tabs.add(Tab(nextTabId++, listOf(null), 0))
+        activeTab = when {
+            i < activeTab -> activeTab - 1
+            else -> activeTab.coerceAtMost(tabs.lastIndex)
+        }
+        saveTabs()
+    }
+
+    fun closeAllTabs() {
+        tabs.clear()
+        readingByTab.clear()
+        tabs.add(Tab(nextTabId++, listOf(null), 0))
+        activeTab = 0
+        saveTabs()
+    }
+
+    private fun saveTabs() {
+        val v = vault ?: return
+        prefs.saveTabs(v.root.absolutePath, tabs.map { it.path }, activeTab)
+    }
+
+    /** After a rename or delete, point every tab, history entry, recent and bookmark at the new path (or nothing). */
+    private fun remap(oldAbs: String, newAbs: String?) {
+        val v = vault ?: return
+        fun map(p: String?): String? {
+            if (p == null) return null
+            return when {
+                p == oldAbs -> newAbs
+                p.startsWith("$oldAbs/") -> newAbs?.let { it + p.removePrefix(oldAbs) }
+                else -> p
+            }
+        }
+        for (i in tabs.indices) {
+            val t = tabs[i]
+            val h = t.history.map { map(it) }
+            if (h != t.history) tabs[i] = t.copy(history = h)
+        }
+        val root = v.root.absolutePath
+        val oldRel = v.rel(File(oldAbs))
+        val newRel = newAbs?.let { v.rel(File(it)) }
+        fun mapRel(r: String): String? = when {
+            r == oldRel -> newRel
+            r.startsWith("$oldRel/") -> newRel?.let { it + r.removePrefix(oldRel) }
+            else -> r
+        }
+        prefs.remapRecents(root) { mapRel(it) }
+        recents = prefs.recents(root)
+        prefs.setBookmarks(root, bookmarks.mapNotNull { mapRel(it) }.distinct())
+        bookmarks = prefs.bookmarks(root)
+        saveTabs()
+    }
+
+    // ---------------------------------------------------------------- notes
+
     /** Follows a [[wikilink]]. Like Obsidian, a link to a note that doesn't exist yet creates it. */
-    fun openLink(target: String) {
+    fun openLink(target: String, newTab: Boolean = false) {
         val v = vault ?: return
         val hit = index.resolve(target)
         if (hit != null && hit.file.exists()) {
-            openNote(hit.file)
+            openNote(hit.file, newTab)
             return
         }
+        createNamed(target, newTab)
+    }
+
+    /** Creates a note from a typed name or link target ("Folder/Name" puts it in that folder). */
+    fun createNamed(name: String, newTab: Boolean = false) {
+        val v = vault ?: return
         viewModelScope.launch {
             val created = withContext(Dispatchers.IO) {
                 runCatching {
-                    val parts = target.trim().trimStart('/').split('/')
-                    val dir = if (parts.size > 1) File(v.root, parts.dropLast(1).joinToString("/")) else v.root
+                    val parts = name.trim().trimStart('/').split('/')
+                    val dir = if (parts.size > 1) File(v.root, parts.dropLast(1).joinToString("/")) else defaultNewNoteDir(v)
                     v.createNote(dir, parts.last())
                 }
             }
             created.onSuccess {
                 index = index.withNote(v.indexOne(it, ""))
                 refresh()
-                openNote(it)
+                openNote(it, newTab)
             }.onFailure { toast("Couldn't create note: ${it.message}") }
         }
     }
 
-    fun openTag(tag: String) = navigate(Screen.Search("tag:#$tag"))
+    private fun defaultNewNoteDir(v: Vault): File =
+        if (settings.newNotesInCurrentFolder) activePath?.let { File(it).parentFile } ?: v.root else v.root
+
+    fun createNote(dir: File? = null) {
+        val v = vault ?: return
+        viewModelScope.launch {
+            val target = dir ?: defaultNewNoteDir(v)
+            val r = withContext(Dispatchers.IO) { runCatching { v.createNote(target) } }
+            r.onSuccess {
+                justCreated = it.absolutePath
+                index = index.withNote(v.indexOne(it, ""))
+                refresh()
+                openNote(it)
+                activeTabId.let { id -> setReading(id, false) }
+            }.onFailure { toast("Couldn't create note: ${it.message}") }
+        }
+    }
+
+    fun createFolder(parent: File, name: String) {
+        val v = vault ?: return
+        viewModelScope.launch {
+            val r = withContext(Dispatchers.IO) { runCatching { v.createFolder(parent, name) } }
+            r.onFailure { toast(it.message ?: "Couldn't create folder") }
+            refresh()
+        }
+    }
+
+    fun openTag(tag: String) {
+        searchQuery = "tag:#$tag"
+        openLeft(1)
+    }
 
     fun resolveAttachment(target: String): File? {
         val v = vault ?: return null
@@ -179,26 +409,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun createNote(dir: File) {
-        val v = vault ?: return
-        viewModelScope.launch {
-            val r = withContext(Dispatchers.IO) { runCatching { v.createNote(dir) } }
-            r.onSuccess {
-                justCreated = it.absolutePath
-                index = index.withNote(v.indexOne(it, ""))
-                refresh()
-                openNote(it)
-            }.onFailure { toast("Couldn't create note: ${it.message}") }
-        }
-    }
-
-    fun createFolder(parent: File, name: String) {
-        val v = vault ?: return
-        viewModelScope.launch {
-            val r = withContext(Dispatchers.IO) { runCatching { v.createFolder(parent, name) } }
-            r.onFailure { toast(it.message ?: "Couldn't create folder") }
-            refresh()
-        }
+    fun requestRename() {
+        activeTabId.let { setReading(it, false) }
+        renameRequest = System.nanoTime()
     }
 
     /** Saves the current text first, then renames, so the editor never writes to the old path. */
@@ -213,9 +426,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 }
             }
             r.onSuccess { nf ->
-                prefs.replaceRecent(v.root.absolutePath, v.rel(old), v.rel(nf))
-                recents = prefs.recents(v.root.absolutePath)
-                if (screen == Screen.Editor(path)) replaceTop(Screen.Editor(nf.absolutePath))
+                remap(old.absolutePath, nf.absolutePath)
                 refresh()
             }.onFailure {
                 toast(it.message ?: "Rename failed")
@@ -228,29 +439,41 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val v = vault ?: return
         viewModelScope.launch {
             val r = withContext(Dispatchers.IO) { runCatching { v.rename(f, newName) } }
-            r.onSuccess { nf ->
-                if (!f.isDirectory) {
-                    prefs.replaceRecent(v.root.absolutePath, v.rel(f), v.rel(nf))
-                    recents = prefs.recents(v.root.absolutePath)
-                }
-            }.onFailure { toast(it.message ?: "Rename failed") }
+            r.onSuccess { nf -> remap(f.absolutePath, nf.absolutePath) }
+                .onFailure { toast(it.message ?: "Rename failed") }
             refresh()
         }
     }
 
-    fun delete(f: File, then: () -> Unit = {}) {
+    fun delete(f: File) {
         val v = vault ?: return
+        val permanent = settings.deletePermanently
         viewModelScope.launch {
-            val rel = v.rel(f)
-            val r = withContext(Dispatchers.IO) { runCatching { v.moveToTrash(f) } }
+            val r = withContext(Dispatchers.IO) {
+                runCatching { if (permanent) v.deletePermanently(f) else v.moveToTrash(f) }
+            }
             r.onSuccess {
-                prefs.replaceRecent(v.root.absolutePath, rel, null)
-                recents = prefs.recents(v.root.absolutePath)
-                toast("Moved \"${f.name}\" to the vault's .trash folder")
-                then()
+                remap(f.absolutePath, null)
+                toast(if (permanent) "Deleted \"${f.name}\"" else "Moved \"${f.name}\" to the vault's .trash folder")
             }.onFailure { toast(it.message ?: "Delete failed") }
             refresh()
         }
+    }
+
+    // ---------------------------------------------------------------- bookmarks
+
+    fun isBookmarked(path: String): Boolean {
+        val v = vault ?: return false
+        return v.rel(File(path)) in bookmarks
+    }
+
+    fun toggleBookmark(path: String) {
+        val v = vault ?: return
+        val rel = v.rel(File(path))
+        val list = if (rel in bookmarks) bookmarks - rel else bookmarks + rel
+        prefs.setBookmarks(v.root.absolutePath, list)
+        bookmarks = list
+        toast(if (rel in list) "Bookmarked" else "Bookmark removed")
     }
 
     fun toast(msg: String) {

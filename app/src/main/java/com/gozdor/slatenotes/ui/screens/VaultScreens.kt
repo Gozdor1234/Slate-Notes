@@ -56,7 +56,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.gozdor.slatenotes.ui.AppViewModel
-import com.gozdor.slatenotes.ui.Screen
+import com.gozdor.slatenotes.ui.Overlay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -76,8 +76,8 @@ fun VaultsScreen(vm: AppViewModel) {
             TopAppBar(
                 title = { Text("Vaults") },
                 navigationIcon = {
-                    if (vm.canGoBack) {
-                        IconButton(onClick = { vm.back() }) {
+                    if (vm.overlays.isNotEmpty()) {
+                        IconButton(onClick = { vm.closeOverlay() }) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                         }
                     }
@@ -101,7 +101,7 @@ fun VaultsScreen(vm: AppViewModel) {
                     )
                     Spacer(Modifier.height(12.dp))
                     Button(
-                        onClick = { vm.navigate(Screen.Browser(vm.storageRoot.absolutePath)) },
+                        onClick = { vm.show(Overlay.Browser(vm.storageRoot.absolutePath)) },
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         Icon(Icons.Outlined.FolderOpen, null)
@@ -233,7 +233,7 @@ fun BrowserScreen(vm: AppViewModel, path: String) {
                     }
                 },
                 navigationIcon = {
-                    IconButton(onClick = { vm.back() }) {
+                    IconButton(onClick = { vm.closeOverlay() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },

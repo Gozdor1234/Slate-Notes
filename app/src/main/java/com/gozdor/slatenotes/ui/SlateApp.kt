@@ -12,7 +12,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -21,13 +20,15 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.gozdor.slatenotes.ui.screens.BrowserScreen
-import com.gozdor.slatenotes.ui.screens.EditorScreen
-import com.gozdor.slatenotes.ui.screens.HomeScreen
 import com.gozdor.slatenotes.ui.screens.PermissionScreen
-import com.gozdor.slatenotes.ui.screens.SearchScreen
 import com.gozdor.slatenotes.ui.screens.VaultsScreen
+import com.gozdor.slatenotes.ui.settings.HelpSheet
+import com.gozdor.slatenotes.ui.settings.SettingsScreen
+import com.gozdor.slatenotes.ui.workspace.CommandPalette
+import com.gozdor.slatenotes.ui.workspace.QuickSwitcher
+import com.gozdor.slatenotes.ui.workspace.TabSwitcher
+import com.gozdor.slatenotes.ui.workspace.WorkspaceScreen
 
 object StoragePermission {
     fun granted(context: Context): Boolean =
@@ -37,7 +38,7 @@ object StoragePermission {
 }
 
 @Composable
-fun SlateApp(vm: AppViewModel = viewModel()) {
+fun SlateApp(vm: AppViewModel) {
     val context = LocalContext.current
     var hasPermission by remember { mutableStateOf(StoragePermission.granted(context)) }
     var resumedOnce by remember { mutableStateOf(false) }
@@ -55,14 +56,21 @@ fun SlateApp(vm: AppViewModel = viewModel()) {
             return@Surface
         }
         LaunchedEffect(Unit) { vm.start() }
-        BackHandler(enabled = vm.canGoBack) { vm.back() }
+        BackHandler(enabled = vm.backHandled) { vm.handleBack() }
 
-        when (val s = vm.screen) {
-            Screen.Vaults -> VaultsScreen(vm)
-            is Screen.Browser -> BrowserScreen(vm, s.path)
-            Screen.Home -> HomeScreen(vm)
-            is Screen.Editor -> key(s.path) { EditorScreen(vm, s.path) }
-            is Screen.Search -> SearchScreen(vm, s.initial)
+        // The workspace stays composed under overlays so open notes keep their state.
+        if (vm.vault != null) WorkspaceScreen(vm)
+
+        when (val o = vm.overlay) {
+            Overlay.Vaults -> VaultsScreen(vm)
+            is Overlay.Browser -> BrowserScreen(vm, o.path)
+            Overlay.Settings -> SettingsScreen(vm)
+            Overlay.QuickSwitcher -> QuickSwitcher(vm)
+            Overlay.Commands -> CommandPalette(vm)
+            Overlay.Tabs -> TabSwitcher(vm)
+            null -> if (vm.vault == null) VaultsScreen(vm)
         }
+
+        HelpSheet(vm)
     }
 }

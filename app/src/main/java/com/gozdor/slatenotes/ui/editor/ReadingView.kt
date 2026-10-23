@@ -134,6 +134,7 @@ fun buildMarkwon(
 @Composable
 fun ReadingView(
     text: String,
+    fontSize: Int,
     resolveEmbed: (String) -> File?,
     onOpenLink: (String) -> Unit,
     onOpenTag: (String) -> Unit,
@@ -170,11 +171,11 @@ fun ReadingView(
         AndroidView(
             factory = { ctx ->
                 TextView(ctx).apply {
-                    textSize = 16f
                     setLineSpacing(0f, 1.3f)
                 }
             },
             update = { tv ->
+                tv.textSize = fontSize.toFloat()
                 tv.setTextColor(textColor)
                 markwon.setMarkdown(tv, prepared)
                 tv.movementMethod = LinkMovementMethod.getInstance()

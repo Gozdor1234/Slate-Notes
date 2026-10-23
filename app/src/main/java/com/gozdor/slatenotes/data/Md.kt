@@ -136,6 +136,28 @@ object Md {
         return (fm.values("aliases") + fm.values("alias")).map { it.trim() }.filter { it.isNotEmpty() }
     }
 
+    data class Heading(val level: Int, val text: String, val offset: Int)
+
+    private val headingLine = Regex("^(#{1,6})\\s+(.+?)\\s*#*\\s*$")
+
+    /** Headings in the note body, with their character offset in the full text (for the outline). */
+    fun headings(text: String): List<Heading> {
+        val fmEnd = frontmatter(text)?.end ?: 0
+        val clean = stripCode(text)
+        val out = mutableListOf<Heading>()
+        var start = fmEnd
+        while (start <= clean.length) {
+            val nl = clean.indexOf('\n', start)
+            val end = if (nl < 0) clean.length else nl
+            headingLine.find(clean.substring(start, end))?.let {
+                out += Heading(it.groupValues[1].length, it.groupValues[2], start)
+            }
+            if (nl < 0) break
+            start = nl + 1
+        }
+        return out
+    }
+
     /** "Note#Heading|Alias" -> "Note" */
     fun linkTarget(inner: String): String =
         inner.substringBefore('|').substringBefore('#').substringBefore('^').trim()

@@ -47,6 +47,20 @@ object Formatting {
         return TextFieldValue(nt, TextRange(cursor))
     }
 
+    /** Indents (tab) or unindents the current line, the way Obsidian nests list items. */
+    fun indent(v: TextFieldValue, increase: Boolean): TextFieldValue {
+        val t = v.text
+        val (ls, le) = lineBounds(t, v.selection.min)
+        val line = t.substring(ls, le)
+        val newLine = if (increase) "\t" + line else when {
+            line.startsWith("\t") -> line.substring(1)
+            else -> line.substring((line.length - line.trimStart(' ').length).coerceAtMost(4))
+        }
+        val delta = newLine.length - line.length
+        val nt = t.replaceRange(ls, le, newLine)
+        return TextFieldValue(nt, TextRange((v.selection.end + delta).coerceIn(ls, nt.length)))
+    }
+
     /** Cycles a line through "# ", "## ", "### " and back to plain text. */
     fun cycleHeading(v: TextFieldValue): TextFieldValue {
         val t = v.text
