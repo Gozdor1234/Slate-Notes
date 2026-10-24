@@ -11,9 +11,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Folder
-import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -32,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import com.gozdor.slatenotes.data.Fuzzy
 import com.gozdor.slatenotes.data.TreeNode
 import com.gozdor.slatenotes.ui.AppViewModel
+import com.gozdor.slatenotes.ui.theme.Lucide
 import java.io.File
 
 private data class FolderOption(val dir: File, val label: String, val depth: Int)
@@ -99,7 +97,7 @@ fun MoveDialog(vm: AppViewModel) {
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Icon(
-                                if (isRoot) Icons.Outlined.Home else Icons.Outlined.Folder,
+                                if (isRoot) Lucide.House else Lucide.Folder,
                                 null, tint = cs.primary, modifier = Modifier.size(18.dp),
                             )
                             Spacer(Modifier.width(10.dp))
