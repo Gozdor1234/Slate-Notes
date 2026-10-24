@@ -1,9 +1,5 @@
 package com.gozdor.slatenotes.ui.canvas
 
-import android.content.ActivityNotFoundException
-import android.content.Intent
-import android.graphics.BitmapFactory
-import android.net.Uri
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -61,14 +57,12 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.TransformOrigin
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
@@ -89,7 +83,6 @@ import com.gozdor.slatenotes.ui.editor.HighlightColors
 import com.gozdor.slatenotes.ui.editor.MarkdownHighlighter
 import com.gozdor.slatenotes.ui.theme.Lucide
 import com.gozdor.slatenotes.ui.workspace.CircleIconButton
-import com.gozdor.slatenotes.ui.workspace.EmptyState
 import com.gozdor.slatenotes.ui.workspace.NavIcon
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -112,7 +105,24 @@ fun canvasColor(c: String?, fallback: Color): Color = when (c) {
     "4" -> Color(0xFF08B94E)
     "5" -> Color(0xFF00BFBC)
     "6" -> Color(0xFFA882FF)
-    else -> runCatching { Color(android.graphics.Color.parseColor(c)) }.getOrDefault(fallback)
+    else -> parseHexColor(c) ?: fallback
+}
+
+/** CSS-style hex: "#RGB", "#RRGGBB" or "#RRGGBBAA". */
+fun parseHexColor(s: String): Color? {
+    val h = s.removePrefix("#")
+    val v = h.toLongOrNull(16) ?: return null
+    return when (h.length) {
+        3 -> {
+            val r = (v shr 8) and 0xF
+            val g = (v shr 4) and 0xF
+            val b = v and 0xF
+            Color((0xFF000000 or (r * 17 shl 16) or (g * 17 shl 8) or (b * 17)).toInt())
+        }
+        6 -> Color((0xFF000000 or v).toInt())
+        8 -> Color((((v and 0xFF) shl 24) or (v shr 8)).toInt())
+        else -> null
+    }
 }
 
 private val colorChoices = listOf(null to "No color", "1" to "Red", "2" to "Orange", "3" to "Yellow", "4" to "Green", "5" to "Cyan", "6" to "Purple")
@@ -162,7 +172,6 @@ private fun bezier(p: List<Offset>, t: Float): Offset {
 fun CanvasView(vm: AppViewModel, path: String) {
     val file = remember(path) { File(path) }
     val cs = MaterialTheme.colorScheme
-    val context = LocalContext.current
     val density = LocalDensity.current.density
     val textMeasurer = rememberTextMeasurer()
 
@@ -324,16 +333,21 @@ fun CanvasView(vm: AppViewModel, path: String) {
                     else -> vm.toast("Can't open .${f.extension} files yet")
                 }
             }
-            "link" -> try {
-                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(n.url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-            } catch (_: ActivityNotFoundException) {
-                vm.toast("No app can open this link")
-            }
+            "link" -> if (!vm.platform.openUrl(n.url)) vm.toast("No app can open this link")
         }
     }
 
     error?.let {
-        EmptyState(title = it, actions = listOf("Close tab" to { vm.closeTab(vm.activeTab) }))
+        Column(
+            Modifier
+                .fillMaxSize()
+                .padding(32.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(it, color = cs.onSurfaceVariant)
+            TextButton(onClick = { vm.closeTab(vm.activeTab) }) { Text("Close tab") }
+        }
         return
     }
 
@@ -723,15 +737,7 @@ private fun FileCardContent(vm: AppViewModel, n: CNode, highlighter: MarkdownHig
     val ext = f?.extension?.lowercase().orEmpty()
     if (f != null && ext in imageExt) {
         val bmp by produceState<ImageBitmap?>(null, f) {
-            value = withContext(Dispatchers.IO) {
-                runCatching {
-                    val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-                    BitmapFactory.decodeFile(f.absolutePath, opts)
-                    var sample = 1
-                    while (opts.outWidth / sample > 1200 || opts.outHeight / sample > 1200) sample *= 2
-                    BitmapFactory.decodeFile(f.absolutePath, BitmapFactory.Options().apply { inSampleSize = sample })?.asImageBitmap()
-                }.getOrNull()
-            }
+            value = withContext(Dispatchers.IO) { runCatching { vm.platform.loadImage(f, 1200) }.getOrNull() }
         }
         bmp?.let { Image(it, contentDescription = f.name, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()) }
             ?: Text(f.name, modifier = Modifier.padding(12.dp), color = cs.onSurfaceVariant)

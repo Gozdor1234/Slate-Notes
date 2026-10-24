@@ -1,8 +1,5 @@
 package com.gozdor.slatenotes.ui
 
-import android.app.Application
-import android.os.Environment
-import android.widget.Toast
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -10,14 +7,13 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.viewModelScope
 import com.gozdor.slatenotes.data.IndexedNote
 import com.gozdor.slatenotes.data.Prefs
 import com.gozdor.slatenotes.data.SlateSettings
 import com.gozdor.slatenotes.data.TreeNode
 import com.gozdor.slatenotes.data.Vault
 import com.gozdor.slatenotes.data.VaultIndex
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -40,8 +36,9 @@ data class Tab(val id: Long, val history: List<String?>, val pos: Int) {
 
 data class JumpRequest(val path: String, val offset: Int)
 
-class AppViewModel(app: Application) : AndroidViewModel(app) {
-    private val prefs = Prefs(app)
+/** All app state and actions, shared by the Android and Windows apps. */
+class AppViewModel(val platform: Platform, private val scope: CoroutineScope) {
+    private val prefs = Prefs(platform.store)
 
     var settings by mutableStateOf(prefs.settings()); private set
 
@@ -78,7 +75,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     private var started = false
 
-    val storageRoot: File get() = Environment.getExternalStorageDirectory()
+    val storageRoot: File get() = platform.storageRoot
 
     // ---------------------------------------------------------------- startup
 
@@ -187,7 +184,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun refresh() {
         val v = vault ?: return
-        viewModelScope.launch {
+        scope.launch {
             indexing = true
             val result = withContext(Dispatchers.IO) { runCatching { v.buildTree() to v.buildIndex() } }
             if (vault === v) {
@@ -341,7 +338,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** Creates a note from a typed name or link target ("Folder/Name" puts it in that folder). */
     fun createNamed(name: String, newTab: Boolean = false) {
         val v = vault ?: return
-        viewModelScope.launch {
+        scope.launch {
             val created = withContext(Dispatchers.IO) {
                 runCatching {
                     val parts = name.trim().trimStart('/').split('/')
@@ -362,7 +359,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun createNote(dir: File? = null) {
         val v = vault ?: return
-        viewModelScope.launch {
+        scope.launch {
             val target = dir ?: defaultNewNoteDir(v)
             val r = withContext(Dispatchers.IO) { runCatching { v.createNote(target) } }
             if (target != v.root) expandedFolders[target.absolutePath] = true
@@ -378,7 +375,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun createCanvas(dir: File? = null) {
         val v = vault ?: return
-        viewModelScope.launch {
+        scope.launch {
             val target = dir ?: defaultNewNoteDir(v)
             val r = withContext(Dispatchers.IO) { runCatching { v.createCanvas(target) } }
             if (target != v.root) expandedFolders[target.absolutePath] = true
@@ -392,7 +389,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** Saves a non-note file (like a canvas) without adding it to the note index. */
     fun saveFile(path: String, text: String) {
         val v = vault ?: return
-        viewModelScope.launch {
+        scope.launch {
             val r = withContext(Dispatchers.IO) { runCatching { v.write(File(path), text) } }
             r.onFailure { toast("Save failed: ${it.message}") }
         }
@@ -400,7 +397,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun createFolder(parent: File, name: String) {
         val v = vault ?: return
-        viewModelScope.launch {
+        scope.launch {
             val r = withContext(Dispatchers.IO) { runCatching { v.createFolder(parent, name) } }
             r.onFailure { toast(it.message ?: "Couldn't create folder") }
             if (parent != v.root) expandedFolders[parent.absolutePath] = true
@@ -425,7 +422,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun saveNote(path: String, text: String) {
         val v = vault ?: return
-        viewModelScope.launch {
+        scope.launch {
             val f = File(path)
             val ok = withContext(Dispatchers.IO) { runCatching { v.write(f, text) } }
             ok.onSuccess { index = index.withNote(v.indexOne(f, text)) }
@@ -441,7 +438,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** Saves the current text first, then renames, so the editor never writes to the old path. */
     fun renameNote(path: String, newName: String, text: String, onFail: () -> Unit) {
         val v = vault ?: return
-        viewModelScope.launch {
+        scope.launch {
             val old = File(path)
             val r = withContext(Dispatchers.IO) {
                 runCatching {
@@ -461,7 +458,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun renameFile(f: File, newName: String) {
         val v = vault ?: return
-        viewModelScope.launch {
+        scope.launch {
             val r = withContext(Dispatchers.IO) { runCatching { v.rename(f, newName) } }
             r.onSuccess { nf -> remap(f.absolutePath, nf.absolutePath) }
                 .onFailure { toast(it.message ?: "Rename failed") }
@@ -478,7 +475,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun moveFile(f: File, destDir: File) {
         val v = vault ?: return
         if (f.parentFile?.absolutePath == destDir.absolutePath) return
-        viewModelScope.launch {
+        scope.launch {
             val r = withContext(Dispatchers.IO) { runCatching { v.move(f, destDir) } }
             r.onSuccess { nf ->
                 if (f.isDirectory || nf.isDirectory) {
@@ -495,7 +492,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun delete(f: File) {
         val v = vault ?: return
         val permanent = settings.deletePermanently
-        viewModelScope.launch {
+        scope.launch {
             val r = withContext(Dispatchers.IO) {
                 runCatching { if (permanent) v.deletePermanently(f) else v.moveToTrash(f) }
             }
@@ -523,7 +520,5 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         toast(if (rel in list) "Bookmarked" else "Bookmark removed")
     }
 
-    fun toast(msg: String) {
-        Toast.makeText(getApplication(), msg, Toast.LENGTH_SHORT).show()
-    }
+    fun toast(msg: String) = platform.toast(msg)
 }

@@ -14,7 +14,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            val vm: AppViewModel = viewModel()
+            val vm: AppViewModel = viewModel<AppHolder>().vm
             SlateTheme(vm.settings) {
                 SlateApp(vm)
             }

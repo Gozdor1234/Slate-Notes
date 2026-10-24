@@ -48,7 +48,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.gozdor.slatenotes.BuildConfigInfo
 import com.gozdor.slatenotes.data.SlateSettings
 import com.gozdor.slatenotes.ui.AppViewModel
 import com.gozdor.slatenotes.ui.Overlay
@@ -217,7 +216,7 @@ fun SettingsScreen(vm: AppViewModel) {
                 item { Group("About") }
                 item {
                     Column(Modifier.padding(horizontal = 20.dp, vertical = 10.dp)) {
-                        Text("Slate Notes ${BuildConfigInfo.versionName(vm)}")
+                        Text("Slate Notes ${vm.platform.appVersion}")
                         Text(
                             "A personal Markdown notes app inspired by Obsidian's workflow, built from its public docs and open file formats.",
                             style = MaterialTheme.typography.bodySmall,

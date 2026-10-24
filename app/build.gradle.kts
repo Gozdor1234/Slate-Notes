@@ -50,9 +50,13 @@ android {
     packaging {
         resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"
     }
+    // UI code shared with the Windows app (compiled here against Jetpack Compose).
+    sourceSets["main"].java.srcDir("../shared-ui/src")
 }
 
 dependencies {
+    implementation(project(":core"))
+
     val composeBom = platform("androidx.compose:compose-bom:2025.05.01")
     implementation(composeBom)
     implementation("androidx.compose.ui:ui")
@@ -72,8 +76,4 @@ dependencies {
     implementation("io.noties.markwon:ext-tables:$markwon")
     implementation("io.noties.markwon:ext-tasklist:$markwon")
     implementation("io.noties.markwon:image:$markwon")
-
-    // JVM unit tests (org.json is only a stub on the JVM, so tests use the real library)
-    testImplementation("junit:junit:4.13.2")
-    testImplementation("org.json:json:20240303")
 }
