@@ -222,24 +222,6 @@ fun ViewSwitcherPill(options: List<Pair<ImageVector, String>>, selected: Int, on
     }
 }
 
-@Composable
-private fun PanelHeader(title: String, actions: @Composable () -> Unit = {}) {
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .padding(start = 16.dp, end = 4.dp, top = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            title,
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.weight(1f),
-        )
-        actions()
-    }
-}
-
 // ------------------------------------------------------------------ files
 
 private data class TreeRow(val node: TreeNode, val depth: Int)
@@ -529,87 +511,4 @@ private fun FilesPanel(vm: AppViewModel) {
         }
     }
     deleting?.let { f -> DeleteDialog(vm, f) { deleting = null } }
-}
-
-// ------------------------------------------------------------------ search
-
-@Composable
-private fun SearchPanel(vm: AppViewModel) {
-    val cs = MaterialTheme.colorScheme
-    var results by remember { mutableStateOf<List<SearchHit>>(emptyList()) }
-    val index = vm.index
-    val query = vm.searchQuery
-    LaunchedEffect(query, index) {
-        delay(120)
-        results = withContext(Dispatchers.Default) { index.search(query) }
-    }
-    Column {
-        TextField(
-            value = query,
-            onValueChange = { vm.searchQuery = it },
-            placeholder = { Text("Search notes, or tag:#name") },
-            singleLine = true,
-            leadingIcon = { Icon(Lucide.Search, null) },
-            trailingIcon = {
-                if (query.isNotEmpty()) IconButton(onClick = { vm.searchQuery = "" }) { Icon(Lucide.X, "Clear") }
-            },
-            colors = TextFieldDefaults.colors(
-                focusedIndicatorColor = Color.Transparent,
-                unfocusedIndicatorColor = Color.Transparent,
-                focusedContainerColor = cs.surfaceContainerHigh,
-                unfocusedContainerColor = cs.surfaceContainerHigh,
-            ),
-            shape = RoundedCornerShape(10.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-        )
-        if (query.isNotBlank()) {
-            Text(
-                "${results.size} result${if (results.size == 1) "" else "s"}",
-                color = cs.onSurfaceVariant,
-                style = MaterialTheme.typography.labelMedium,
-                modifier = Modifier.padding(horizontal = 16.dp),
-            )
-        }
-        LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
-            items(results, key = { it.note.file.absolutePath }) { hit ->
-                NoteRow(hit.note.name, hit.snippet ?: hit.note.rel) { vm.openNote(hit.note.file) }
-            }
-        }
-    }
-}
-
-// ------------------------------------------------------------------ bookmarks
-
-@Composable
-private fun BookmarksPanel(vm: AppViewModel) {
-    val v = vm.vault ?: return
-    val cs = MaterialTheme.colorScheme
-    Column {
-        PanelHeader("Bookmarks")
-        if (vm.bookmarks.isEmpty()) {
-            EmptyHint("No bookmarks yet. Use a note's ⋮ menu, or long-press it in Files, and choose Bookmark.")
-        }
-        LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
-            items(vm.bookmarks, key = { it }) { rel ->
-                val f = File(v.root, rel)
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .clickable { if (f.isFile) vm.openNote(f) else vm.toast("That file no longer exists") }
-                        .padding(horizontal = 16.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(Lucide.Bookmark, null, tint = cs.primary, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(10.dp))
-                    Text(f.nameWithoutExtension, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                    IconButton(onClick = { vm.toggleBookmark(f.absolutePath) }) {
-                        Icon(Lucide.X, contentDescription = "Remove bookmark", tint = cs.onSurfaceVariant, modifier = Modifier.size(18.dp))
-                    }
-                }
-            }
-        }
-        Spacer(Modifier.height(8.dp))
-    }
 }

@@ -15,4 +15,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "SlateNotes"
-include(":app", ":core")
+include(":app", ":core", ":desktop")

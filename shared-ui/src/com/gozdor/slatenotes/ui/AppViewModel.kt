@@ -93,8 +93,18 @@ class AppViewModel(val platform: Platform, private val scope: CoroutineScope) {
 
     // ---------------------------------------------------------------- overlays, sidebars, back
 
+    /**
+     * Phone: sidebars are drawers that close when something else opens, and only one shows at a time.
+     * Windows: sidebars are docked panels that stay put until toggled.
+     */
+    var dockedSidebars = false
+
+    fun closeDrawers() {
+        if (!dockedSidebars) closeSidebars()
+    }
+
     fun show(o: Overlay) {
-        closeSidebars()
+        closeDrawers()
         overlays.add(o)
     }
 
@@ -109,24 +119,24 @@ class AppViewModel(val platform: Platform, private val scope: CoroutineScope) {
 
     fun openLeft(panel: Int? = null) {
         panel?.let { leftPanel = it }
-        rightOpen = false
+        if (!dockedSidebars) rightOpen = false
         leftOpen = true
     }
 
     fun openRight(panel: Int? = null) {
         panel?.let { rightPanel = it }
-        leftOpen = false
+        if (!dockedSidebars) leftOpen = false
         rightOpen = true
     }
 
     /** True when the system back button has something to do inside the app. */
     val backHandled: Boolean
-        get() = helpTopic != null || leftOpen || rightOpen || overlays.isNotEmpty() || canGoBack
+        get() = helpTopic != null || (!dockedSidebars && (leftOpen || rightOpen)) || overlays.isNotEmpty() || canGoBack
 
     fun handleBack() {
         when {
             helpTopic != null -> helpTopic = if (helpTopic == -1 || helpFromSettings) null else -1
-            leftOpen || rightOpen -> closeSidebars()
+            !dockedSidebars && (leftOpen || rightOpen) -> closeSidebars()
             overlays.isNotEmpty() -> closeOverlay()
             canGoBack -> goBack()
         }
@@ -164,7 +174,7 @@ class AppViewModel(val platform: Platform, private val scope: CoroutineScope) {
         activeTab = prefs.activeTab(key).coerceIn(0, tabs.lastIndex)
 
         overlays.clear()
-        closeSidebars()
+        closeDrawers()
         refresh()
     }
 
@@ -236,7 +246,7 @@ class AppViewModel(val platform: Platform, private val scope: CoroutineScope) {
             }
         }
         overlays.clear()
-        closeSidebars()
+        closeDrawers()
         saveTabs()
     }
 
@@ -256,7 +266,7 @@ class AppViewModel(val platform: Platform, private val scope: CoroutineScope) {
         tabs.add(Tab(nextTabId++, listOf(null), 0))
         activeTab = tabs.lastIndex
         overlays.clear()
-        closeSidebars()
+        closeDrawers()
         saveTabs()
     }
 
@@ -266,8 +276,11 @@ class AppViewModel(val platform: Platform, private val scope: CoroutineScope) {
         saveTabs()
     }
 
+    private val closedTabs = ArrayDeque<String>()
+
     fun closeTab(i: Int) {
         if (i !in tabs.indices) return
+        tabs[i].path?.let { closedTabs.addLast(it) }
         readingByTab.remove(tabs[i].id)
         tabs.removeAt(i)
         if (tabs.isEmpty()) tabs.add(Tab(nextTabId++, listOf(null), 0))
@@ -276,6 +289,17 @@ class AppViewModel(val platform: Platform, private val scope: CoroutineScope) {
             else -> activeTab.coerceAtMost(tabs.lastIndex)
         }
         saveTabs()
+    }
+
+    /** Ctrl+Shift+T: reopen the most recently closed note that still exists. */
+    fun reopenClosedTab() {
+        while (closedTabs.isNotEmpty()) {
+            val f = File(closedTabs.removeLast())
+            if (f.isFile) {
+                openNote(f, newTab = true)
+                return
+            }
+        }
     }
 
     fun closeAllTabs() {

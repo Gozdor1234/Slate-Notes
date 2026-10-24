@@ -124,4 +124,10 @@ object Lucide {
     val FilePlus: ImageVector by lazy { lucide("file-plus", "M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z", "M14 2v5a1 1 0 0 0 1 1h5", "M9 15h6", "M12 18v-6") }
     val ExternalLink: ImageVector by lazy { lucide("external-link", "M15 3h6v6", "M10 14 21 3", "M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6") }
     val Group: ImageVector by lazy { lucide("group", "M3 7V5c0-1.1.9-2 2-2h2", "M17 3h2c1.1 0 2 .9 2 2v2", "M21 17v2c0 1.1-.9 2-2 2h-2", "M7 21H5c-1.1 0-2-.9-2-2v-2", "M8.0 7.0H13.0A1.0 1.0 0 0 1 14.0 8.0V11.0A1.0 1.0 0 0 1 13.0 12.0H8.0A1.0 1.0 0 0 1 7.0 11.0V8.0A1.0 1.0 0 0 1 8.0 7.0Z", "M11.0 12.0H16.0A1.0 1.0 0 0 1 17.0 13.0V16.0A1.0 1.0 0 0 1 16.0 17.0H11.0A1.0 1.0 0 0 1 10.0 16.0V13.0A1.0 1.0 0 0 1 11.0 12.0Z") }
+    val PanelRight: ImageVector by lazy { lucide("panel-right", "M5.0 3.0H19.0A2.0 2.0 0 0 1 21.0 5.0V19.0A2.0 2.0 0 0 1 19.0 21.0H5.0A2.0 2.0 0 0 1 3.0 19.0V5.0A2.0 2.0 0 0 1 5.0 3.0Z", "M15 3v18") }
+    val Ellipsis: ImageVector by lazy { lucide("ellipsis", "M11.0 12.0a1.0 1.0 0 1 0 2.0 0a1.0 1.0 0 1 0 -2.0 0", "M18.0 12.0a1.0 1.0 0 1 0 2.0 0a1.0 1.0 0 1 0 -2.0 0", "M4.0 12.0a1.0 1.0 0 1 0 2.0 0a1.0 1.0 0 1 0 -2.0 0") }
+    val Keyboard: ImageVector by lazy { lucide("keyboard", "M10 8h.01", "M12 12h.01", "M14 8h.01", "M16 12h.01", "M18 8h.01", "M6 8h.01", "M7 16h10", "M8 12h.01", "M4.0 4.0H20.0A2.0 2.0 0 0 1 22.0 6.0V18.0A2.0 2.0 0 0 1 20.0 20.0H4.0A2.0 2.0 0 0 1 2.0 18.0V6.0A2.0 2.0 0 0 1 4.0 4.0Z") }
+    val Info: ImageVector by lazy { lucide("info", "M2.0 12.0a10.0 10.0 0 1 0 20.0 0a10.0 10.0 0 1 0 -20.0 0", "M12 16v-4", "M12 8h.01") }
+    val SlidersHorizontal: ImageVector by lazy { lucide("sliders-horizontal", "M10 5H3", "M12 19H3", "M14 3v4", "M16 17v4", "M21 12h-9", "M21 19h-5", "M21 5h-7", "M8 10v4", "M8 12H3") }
+    val FolderOpen: ImageVector by lazy { lucide("folder-open", "m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2") }
 }

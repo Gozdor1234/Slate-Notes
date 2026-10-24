@@ -59,6 +59,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.layout.ContentScale
@@ -69,6 +70,7 @@ import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
@@ -169,7 +171,7 @@ private fun bezier(p: List<Offset>, t: Float): Offset {
 }
 
 @Composable
-fun CanvasView(vm: AppViewModel, path: String) {
+fun CanvasView(vm: AppViewModel, path: String, controlsBottomPadding: Dp = 96.dp) {
     val file = remember(path) { File(path) }
     val cs = MaterialTheme.colorScheme
     val density = LocalDensity.current.density
@@ -428,6 +430,27 @@ fun CanvasView(vm: AppViewModel, path: String) {
                         }
                     }
                 }
+            }
+            // Mouse wheel: Ctrl+wheel zooms at the pointer, wheel pans (Shift+wheel pans sideways).
+            .pointerInput(path, density) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val e = awaitPointerEvent()
+                        if (e.type != PointerEventType.Scroll) continue
+                        val ch = e.changes.firstOrNull() ?: continue
+                        val d = ch.scrollDelta
+                        if (e.keyboardModifiers.isCtrlPressed) {
+                            val newScale = (scale * if (d.y > 0) 0.9f else 1.1f).coerceIn(0.1f, 4f)
+                            val z = newScale / scale
+                            pan = (pan - ch.position) * z + ch.position
+                            scale = newScale
+                        } else {
+                            val step = 40f * density
+                            pan -= if (e.keyboardModifiers.isShiftPressed) Offset(d.y * step, 0f) else Offset(d.x * step, d.y * step)
+                        }
+                        ch.consume()
+                    }
+                }
             },
     ) {
         // Dot grid that moves with the canvas.
@@ -535,7 +558,7 @@ fun CanvasView(vm: AppViewModel, path: String) {
         Column(
             Modifier
                 .align(Alignment.BottomEnd)
-                .padding(end = 16.dp, bottom = 96.dp),
+                .padding(end = 16.dp, bottom = controlsBottomPadding),
             verticalArrangement = Arrangement.spacedBy(12.dp),
             horizontalAlignment = Alignment.End,
         ) {
@@ -576,7 +599,7 @@ fun CanvasView(vm: AppViewModel, path: String) {
                 shadowElevation = 10.dp,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(bottom = 96.dp),
+                    .padding(bottom = controlsBottomPadding),
             ) {
                 Row(Modifier.padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     if (selectedNode != null) {

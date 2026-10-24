@@ -6,9 +6,24 @@ Because a vault is just a folder of `.md` files, Slate can open an existing Obsi
 
 ## Install
 
+**Android**
+
 1. Open the [latest release](../../releases/latest) on your phone.
 2. Download `SlateNotes.apk` and open it. Allow installs from your browser if Android asks.
 3. Every push to `main` builds a new release. Newer APKs install over older ones (same signing key), so your settings are kept.
+
+**Windows**
+
+1. Open the [latest release](../../releases/latest) on your PC and download `SlateNotes-Setup.msi`.
+2. Run it. It installs for your user only, so no administrator rights are needed. The installer isn't code-signed, so Windows SmartScreen may warn first: choose **More info**, then **Run anyway**.
+3. Slate Notes appears in the Start menu and on the desktop. A newer installer upgrades the old version in place.
+
+## Project layout
+
+- `core/`: plain Kotlin shared by both apps (vaults, index, search, links, canvas files, settings), with unit tests.
+- `shared-ui/`: Compose UI and app state shared by both apps (theme, icons, editor styling, canvas, sidebar panels, help).
+- `app/`: the Android app (phone layout).
+- `desktop/`: the Windows app (Obsidian desktop layout), packaged as an MSI.
 
 ## What works now (Phase 1)
 

@@ -1,4 +1,4 @@
-name: Build APK
+name: Build apps
 
 on:
   push:
@@ -50,6 +50,54 @@ jobs:
         with:
           tag_name: build-${{ github.run_number }}
           name: Slate Notes build ${{ github.run_number }}
-          body: Built from ${{ github.sha }}. Download SlateNotes.apk below and open it on your phone to install or update.
+          body: |
+            Built from ${{ github.sha }}.
+            Android: download SlateNotes.apk on your phone and open it to install or update.
+            Windows: download SlateNotes-Setup.msi on your PC and run it (the Windows build is added a few minutes after the Android one).
           files: SlateNotes.apk
           make_latest: true
+
+  windows:
+    needs: build
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build Windows installer
+        shell: bash
+        run: |
+          set -o pipefail
+          ./gradlew :desktop:packageMsi -PbuildNumber=${{ github.run_number }} --stacktrace 2>&1 | tee build.log
+
+      - name: Report build errors as annotations
+        if: failure()
+        shell: bash
+        run: |
+          grep -E "^e: |What went wrong|ERROR:|error:|FAILED" build.log | head -50 | while IFS= read -r line; do
+            echo "::error::${line}"
+          done
+          grep -A6 "What went wrong" build.log | head -30 | while IFS= read -r line; do
+            echo "::error::${line}"
+          done
+
+      - name: Rename installer
+        shell: bash
+        run: mv desktop/build/compose/binaries/main/msi/*.msi SlateNotes-Setup.msi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SlateNotes-windows
+          path: SlateNotes-Setup.msi
+
+      - name: Add installer to the release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          files: SlateNotes-Setup.msi
