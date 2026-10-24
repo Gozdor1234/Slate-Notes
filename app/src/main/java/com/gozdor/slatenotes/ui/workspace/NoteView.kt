@@ -133,6 +133,17 @@ fun NoteView(vm: AppViewModel, tabId: Long, path: String) {
     }
 
     // Autosave shortly after typing stops.
+    // Pick up edits that arrived from elsewhere (e.g. synced from another device), but never
+    // overwrite text you've typed and not saved yet.
+    LaunchedEffect(vm.index) {
+        if (!loaded || value.text != lastSaved) return@LaunchedEffect
+        val disk = withContext(Dispatchers.IO) { runCatching { file.readText() }.getOrNull() } ?: return@LaunchedEffect
+        if (disk != lastSaved && value.text == lastSaved) {
+            value = TextFieldValue(disk, TextRange(value.selection.start.coerceAtMost(disk.length)))
+            lastSaved = disk
+        }
+    }
+
     LaunchedEffect(value.text) {
         if (!loaded || value.text == lastSaved) return@LaunchedEffect
         delay(600)

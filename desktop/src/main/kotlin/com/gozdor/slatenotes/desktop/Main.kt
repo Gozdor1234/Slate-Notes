@@ -29,6 +29,7 @@ import androidx.compose.ui.input.key.isCtrlPressed
 import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
@@ -88,6 +89,9 @@ fun main() {
             state = rememberWindowState(width = 1280.dp, height = 820.dp),
             onPreviewKeyEvent = { handleHotkey(vm, it) },
         ) {
+            // Re-read the vault whenever the window comes back into focus, like the phone app does on resume.
+            val focused = LocalWindowInfo.current.isWindowFocused
+            LaunchedEffect(focused) { if (focused && vm.vault != null) vm.refresh() }
             SlateTheme(vm.settings) {
                 Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
                     Box(Modifier.fillMaxSize()) {
