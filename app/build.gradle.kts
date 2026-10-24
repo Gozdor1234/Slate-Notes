@@ -12,8 +12,8 @@ android {
         applicationId = "com.gozdor.slatenotes"
         minSdk = 26
         targetSdk = 35
-        versionCode = 5
-        versionName = "0.4.0"
+        versionCode = 6
+        versionName = "0.5.0"
     }
 
     // One fixed key for every build, so a new APK installs over the old one
@@ -72,4 +72,8 @@ dependencies {
     implementation("io.noties.markwon:ext-tables:$markwon")
     implementation("io.noties.markwon:ext-tasklist:$markwon")
     implementation("io.noties.markwon:image:$markwon")
+
+    // JVM unit tests (org.json is only a stub on the JVM, so tests use the real library)
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.json:json:20240303")
 }

@@ -376,6 +376,28 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun createCanvas(dir: File? = null) {
+        val v = vault ?: return
+        viewModelScope.launch {
+            val target = dir ?: defaultNewNoteDir(v)
+            val r = withContext(Dispatchers.IO) { runCatching { v.createCanvas(target) } }
+            if (target != v.root) expandedFolders[target.absolutePath] = true
+            r.onSuccess {
+                refresh()
+                openNote(it)
+            }.onFailure { toast("Couldn't create canvas: ${it.message}") }
+        }
+    }
+
+    /** Saves a non-note file (like a canvas) without adding it to the note index. */
+    fun saveFile(path: String, text: String) {
+        val v = vault ?: return
+        viewModelScope.launch {
+            val r = withContext(Dispatchers.IO) { runCatching { v.write(File(path), text) } }
+            r.onFailure { toast("Save failed: ${it.message}") }
+        }
+    }
+
     fun createFolder(parent: File, name: String) {
         val v = vault ?: return
         viewModelScope.launch {

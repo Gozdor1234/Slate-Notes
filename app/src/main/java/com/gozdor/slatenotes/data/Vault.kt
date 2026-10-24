@@ -44,6 +44,13 @@ class Vault(val root: File) {
         return f
     }
 
+    fun createCanvas(dir: File, base: String = "Untitled"): File {
+        dir.mkdirs()
+        val f = uniqueFile(dir, sanitize(base).ifBlank { "Untitled" }, ".canvas")
+        f.writeText(CanvasFile.EMPTY)
+        return f
+    }
+
     fun createFolder(parent: File, name: String): File {
         val f = uniqueFile(parent, sanitize(name).ifBlank { "New folder" }, "")
         if (!f.mkdirs()) throw IOException("Couldn't create folder")

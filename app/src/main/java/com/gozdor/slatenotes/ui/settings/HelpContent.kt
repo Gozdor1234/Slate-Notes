@@ -79,7 +79,7 @@ val HelpTopics: List<HelpTopic> = listOf(
                 heading = "Deleting",
                 text = "Deleted files move to the vault's .trash folder, so you can get them back with a file manager. Settings ▸ Files and links can change this to delete permanently, and can turn off the confirmation prompt.",
             ),
-            HelpBlock("Files other than Markdown (images, PDFs and so on) show in the list but can't be opened in Slate yet. Images can still be embedded in notes."),
+            HelpBlock("Canvas files open in Slate. Other files (images, PDFs and so on) show in the list but can't be opened yet. Images can still be embedded in notes and on canvases."),
         ),
     ),
     HelpTopic(
@@ -140,6 +140,40 @@ val HelpTopics: List<HelpTopic> = listOf(
                 text = "Open the right sidebar. Backlinks lists every note that links to the open note. Outgoing links lists the links inside the open note, including ones whose notes haven't been created yet (tap one to create it).",
             ),
             HelpBlock("Renaming a note does not update links in other notes yet. That is planned."),
+        ),
+    ),
+    HelpTopic(
+        "Canvas",
+        "Lay out cards and notes visually",
+        listOf(
+            HelpBlock("A canvas is a board you can arrange cards on and connect with arrows. Slate saves it as a .canvas file in the open JSON Canvas format, the same one Obsidian uses, so the same file works in both apps."),
+            HelpBlock(
+                heading = "Create one",
+                bullets = listOf(
+                    "Tap New canvas on an empty tab, ☰ ▸ Create new canvas, or long-press a folder in Files and choose New canvas.",
+                    "Tap + on the canvas to add a card (Markdown text), a note from your vault, or a group.",
+                ),
+            ),
+            HelpBlock(
+                heading = "Moving around",
+                bullets = listOf(
+                    "Drag with one finger to pan. Pinch with two fingers to zoom.",
+                    "The square button above + zooms to fit everything on screen.",
+                ),
+            ),
+            HelpBlock(
+                heading = "Working with cards",
+                bullets = listOf(
+                    "Tap a card to select it. A toolbar appears: edit, open, connect, color and delete.",
+                    "Drag a selected card to move it. Dragging a card that isn't selected pans instead, so you don't move things by accident.",
+                    "Moving a group also moves the cards that sit fully inside it.",
+                    "Drag the dot on a selected card's bottom-right corner to resize it.",
+                    "Tap a selected text card or group again to edit it.",
+                    "To connect two cards, select one, tap the connect button, then tap the other card.",
+                    "Tap an arrow to select it, then change its color or delete it.",
+                ),
+            ),
+            HelpBlock("Slate keeps any settings in a canvas file that it doesn't use itself, so editing a canvas here won't strip anything Obsidian added."),
         ),
     ),
     HelpTopic(

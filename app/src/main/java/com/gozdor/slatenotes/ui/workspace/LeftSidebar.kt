@@ -362,6 +362,7 @@ private fun FilesPanel(vm: AppViewModel) {
                     val f = row.node.file
                     val path = f.absolutePath
                     val isMd = !row.node.isDir && f.extension.equals("md", ignoreCase = true)
+                    val isCanvas = !row.node.isDir && f.extension.equals("canvas", ignoreCase = true)
                     val isDropTarget = drag.item != null && row.node.isDir && drag.dest?.absolutePath == path
                     val isDragged = drag.item?.absolutePath == path
                     val chevronAngle by animateFloatAsState(if (expanded[path] == true) 90f else 0f, label = "chevron")
@@ -415,7 +416,7 @@ private fun FilesPanel(vm: AppViewModel) {
                                     when {
                                         row.node.isDir -> expanded[path] = expanded[path] != true
                                         isMd -> vm.openNote(f)
-                                        f.extension.equals("canvas", ignoreCase = true) -> vm.toast("Canvas files open in a later version")
+                                        isCanvas -> vm.openNote(f)
                                         else -> vm.toast("Can't open .${f.extension} files yet")
                                     }
                                 }
@@ -433,14 +434,18 @@ private fun FilesPanel(vm: AppViewModel) {
                             } else {
                                 Spacer(Modifier.width(22.dp))
                                 Icon(
-                                    if (isMd) Lucide.FileText else Lucide.File,
+                                    when {
+                                        isMd -> Lucide.FileText
+                                        isCanvas -> Lucide.LayoutDashboard
+                                        else -> Lucide.File
+                                    },
                                     null, tint = cs.onSurfaceVariant, modifier = Modifier.size(18.dp),
                                 )
                             }
                             Spacer(Modifier.width(8.dp))
                             Text(
-                                if (isMd) f.nameWithoutExtension else f.name,
-                                color = if (row.node.isDir || isMd) cs.onSurface else cs.onSurfaceVariant,
+                                if (isMd || isCanvas) f.nameWithoutExtension else f.name,
+                                color = if (row.node.isDir || isMd || isCanvas) cs.onSurface else cs.onSurfaceVariant,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )
@@ -448,8 +453,9 @@ private fun FilesPanel(vm: AppViewModel) {
                         DropdownMenu(expanded = menuFor == path, onDismissRequest = { menuFor = null }) {
                             if (row.node.isDir) {
                                 DropdownMenuItem(text = { Text("New note") }, onClick = { menuFor = null; vm.createNote(f) })
+                                DropdownMenuItem(text = { Text("New canvas") }, onClick = { menuFor = null; vm.createCanvas(f) })
                                 DropdownMenuItem(text = { Text("New folder") }, onClick = { menuFor = null; newFolderIn = f })
-                            } else if (isMd) {
+                            } else if (isMd || isCanvas) {
                                 DropdownMenuItem(text = { Text("Open in new tab") }, onClick = { menuFor = null; vm.openNote(f, newTab = true) })
                                 DropdownMenuItem(
                                     text = { Text(if (vm.isBookmarked(path)) "Remove bookmark" else "Bookmark") },

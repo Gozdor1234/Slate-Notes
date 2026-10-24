@@ -202,6 +202,7 @@ fun CommandPalette(vm: AppViewModel) {
 
     val all = listOf(
         Command("Create new note", run = then { vm.createNote() }),
+        Command("Canvas: Create new canvas", run = then { vm.createCanvas() }),
         Command("Open quick switcher", run = then { vm.show(Overlay.QuickSwitcher) }),
         Command("Search: Search in all files", run = then { vm.openLeft(1) }),
         Command("Files: Show file explorer", run = then { vm.openLeft(0) }),

@@ -27,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -82,9 +83,9 @@ fun NavIcon(icon: ImageVector, description: String, enabled: Boolean = true, onC
     }
 }
 
-/** Outlined rounded "pill" button, used on the empty tab. */
+/** Outlined rounded "pill" button, used on the empty tab. Give a [width] to line several up evenly. */
 @Composable
-fun PillButton(label: String, icon: ImageVector? = null, onClick: () -> Unit) {
+fun PillButton(label: String, icon: ImageVector? = null, width: Dp? = null, onClick: () -> Unit) {
     val cs = MaterialTheme.colorScheme
     val interaction = remember { MutableInteractionSource() }
     Surface(
@@ -93,17 +94,19 @@ fun PillButton(label: String, icon: ImageVector? = null, onClick: () -> Unit) {
         color = cs.surface,
         border = BorderStroke(1.dp, cs.outlineVariant),
         interactionSource = interaction,
-        modifier = Modifier.pressScale(interaction),
+        modifier = Modifier
+            .then(if (width != null) Modifier.width(width) else Modifier)
+            .pressScale(interaction),
     ) {
         Row(
-            Modifier.padding(horizontal = 26.dp, vertical = 14.dp),
+            Modifier.padding(start = 17.dp, end = 16.dp, top = 10.dp, bottom = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (icon != null) {
-                Icon(icon, null, tint = cs.onSurface, modifier = Modifier.size(20.dp))
-                Spacer(Modifier.width(12.dp))
+                Icon(icon, null, tint = cs.onSurface, modifier = Modifier.size(17.dp))
+                Spacer(Modifier.width(9.dp))
             }
-            Text(label, fontSize = 17.sp, color = cs.onSurface)
+            Text(label, fontSize = 15.sp, color = cs.onSurface, maxLines = 1)
         }
     }
 }

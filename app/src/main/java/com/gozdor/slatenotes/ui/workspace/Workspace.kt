@@ -75,6 +75,7 @@ import androidx.compose.ui.unit.min
 import androidx.compose.ui.unit.sp
 import com.gozdor.slatenotes.ui.AppViewModel
 import com.gozdor.slatenotes.ui.Overlay
+import com.gozdor.slatenotes.ui.canvas.CanvasView
 import com.gozdor.slatenotes.ui.screens.ConfirmDialog
 import com.gozdor.slatenotes.ui.theme.Lucide
 import kotlinx.coroutines.launch
@@ -106,7 +107,11 @@ fun WorkspaceScreen(vm: AppViewModel) {
                     animationSpec = tween(180),
                     label = "note",
                 ) { (tabId, path) ->
-                    if (path == null) EmptyTab(vm) else key(tabId, path) { NoteView(vm, tabId, path) }
+                    when {
+                        path == null -> EmptyTab(vm)
+                        path.endsWith(".canvas", ignoreCase = true) -> key(tabId, path) { CanvasView(vm, path) }
+                        else -> key(tabId, path) { NoteView(vm, tabId, path) }
+                    }
                 }
             }
         }
@@ -130,6 +135,7 @@ private fun ViewHeader(vm: AppViewModel) {
     var menu by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     val reading = vm.isReading(tabId)
+    val isCanvas = path?.endsWith(".canvas", ignoreCase = true) == true
 
     Row(
         Modifier
@@ -160,18 +166,22 @@ private fun ViewHeader(vm: AppViewModel) {
                 containerColor = cs.surface,
             ) {
                 if (path != null) {
-                    MenuRow(if (reading) Lucide.Pencil else Lucide.BookOpen, if (reading) "Editing view" else "Reading view") {
-                        menu = false
-                        vm.setReading(tabId, !reading)
+                    if (!isCanvas) {
+                        MenuRow(if (reading) Lucide.Pencil else Lucide.BookOpen, if (reading) "Editing view" else "Reading view") {
+                            menu = false
+                            vm.setReading(tabId, !reading)
+                        }
                     }
                     MenuRow(Lucide.Bookmark, if (vm.isBookmarked(path)) "Remove bookmark" else "Bookmark") {
                         menu = false
                         vm.toggleBookmark(path)
                     }
-                    MenuRow(Lucide.Pencil, "Rename") { menu = false; vm.requestRename() }
+                    if (!isCanvas) MenuRow(Lucide.Pencil, "Rename") { menu = false; vm.requestRename() }
                     MenuRow(Lucide.FolderInput, "Move file to…") { menu = false; vm.moveTarget = File(path) }
-                    MenuRow(Lucide.ArrowDownLeft, "Backlinks") { menu = false; vm.openRight(0) }
-                    MenuRow(Lucide.List, "Outline") { menu = false; vm.openRight(3) }
+                    if (!isCanvas) {
+                        MenuRow(Lucide.ArrowDownLeft, "Backlinks") { menu = false; vm.openRight(0) }
+                        MenuRow(Lucide.List, "Outline") { menu = false; vm.openRight(3) }
+                    }
                     MenuRow(Lucide.X, "Close tab") { menu = false; vm.closeTab(vm.activeTab) }
                     HorizontalDivider(color = cs.outlineVariant)
                     DropdownMenuItem(
@@ -294,6 +304,7 @@ private fun RibbonSheet(vm: AppViewModel, onDismiss: () -> Unit) {
     val items = listOf(
         Triple(Lucide.FileSearch, "Open quick switcher") { vm.show(Overlay.QuickSwitcher) },
         Triple(Lucide.SquarePen, "Create new note") { vm.createNote() },
+        Triple(Lucide.LayoutDashboard, "Create new canvas") { vm.createCanvas() },
         Triple(Lucide.Search, "Search") { vm.openLeft(1) },
         Triple(Lucide.Bookmark, "Bookmarks") { vm.openLeft(2) },
         Triple(Lucide.Terminal, "Open command palette") { vm.show(Overlay.Commands) },
@@ -356,10 +367,12 @@ private fun EmptyTab(vm: AppViewModel) {
                 Modifier
                     .fillMaxWidth()
                     .heightIn(min = viewport),
-                verticalArrangement = Arrangement.Center,
+                verticalArrangement = Arrangement.spacedBy(9.dp, Alignment.CenterVertically),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                PillButton("New note", Lucide.SquarePen) { vm.createNote() }
+                PillButton("New note", Lucide.SquarePen, width = 142.dp) { vm.createNote() }
+                PillButton("New base", Lucide.LayoutList, width = 142.dp) { vm.toast("Bases are coming in a later version") }
+                PillButton("New canvas", Lucide.LayoutDashboard, width = 142.dp) { vm.createCanvas() }
             }
         }
     }
