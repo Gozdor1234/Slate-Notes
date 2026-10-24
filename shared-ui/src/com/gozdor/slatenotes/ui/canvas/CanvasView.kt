@@ -502,9 +502,10 @@ fun CanvasView(vm: AppViewModel, path: String) {
                     if ((e.toEnd ?: "arrow") == "arrow") arrow(pts[3], pts[2])
                     if (e.fromEnd == "arrow") arrow(pts[0], pts[1])
 
-                    if (!e.label.isNullOrEmpty()) {
+                    val label = e.label
+                    if (!label.isNullOrEmpty()) {
                         val mid = bezier(pts, 0.5f)
-                        val layout = textMeasurer.measure(e.label, labelStyle)
+                        val layout = textMeasurer.measure(label, labelStyle)
                         val tl = mid - Offset(layout.size.width / 2f, layout.size.height / 2f)
                         drawRect(labelBg, topLeft = tl - Offset(6f, 2f), size = androidx.compose.ui.geometry.Size(layout.size.width + 12f, layout.size.height + 4f))
                         drawText(layout, topLeft = tl)
